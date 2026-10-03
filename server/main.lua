@@ -614,3 +614,35 @@ end)
 
 -- internal access for server/usable.lua
 InvInternal = { resolve = resolve, removeItem = removeItem, addItem = addItem }
+
+---------------------------------------------------------------------
+-- Admin commands
+---------------------------------------------------------------------
+exports.arca_core:AddCommand('giveitem', 'Give an item: /giveitem id|me item count', 'admin', function(src, args)
+    local function reply(msg, kind)
+        if src == 0 then return print(msg) end
+        TriggerClientEvent('arca_core:notify', src, msg, kind)
+    end
+
+    local target = args[1] == 'me' and src or tonumber(args[1])
+    local name = args[2] and args[2]:lower()
+    local count = math.floor(tonumber(args[3]) or 1)
+
+    if not target or target == 0 or not name then
+        return reply('Usage: /giveitem id|me item count', 'error')
+    end
+    if not def(name) then return reply(('Item "%s" does not exist'):format(name), 'error') end
+    if count < 1 then return reply('Count must be at least 1', 'error') end
+
+    local inv = resolve(target)
+    if not inv then return reply('Player is not online or not logged in', 'error') end
+    if not addItem(inv, name, count) then
+        return reply('They don\'t have enough space or weight for that', 'error')
+    end
+
+    local label = def(name).label
+    reply(('Gave %dx %s to %s'):format(count, label, target == src and 'yourself' or ('ID ' .. target)), 'success')
+    if target ~= src then
+        TriggerClientEvent('arca_core:notify', target, ('You received %dx %s'):format(count, label), 'success')
+    end
+end)
