@@ -9,7 +9,8 @@ local openTrunk        -- vehicle whose trunk we opened
 local function itemsForNui()
     local list = {}
     for name, d in pairs(InvItems) do
-        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description }
+        local rarity = InvConfig.Rarity.Enabled and (d.rarity or InvConfig.Rarity.Default) or nil
+        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity }
     end
     return list
 end
@@ -76,7 +77,7 @@ local function openInventory(ctx)
         return exports.arca_core:Notify('Inventory failed to load', 'error')
     end
     isOpen = true
-    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui(), payment = InvConfig.ShopPayment } })
+    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui(), payment = InvConfig.ShopPayment, rarity = InvConfig.Rarity } })
     SetNuiFocus(true, true)
 end
 

@@ -1,5 +1,5 @@
 InvConfig = {
-    OpenKey = 'TAB',            -- default key, players can rebind in GTA settings
+    OpenKey = 'I',            -- default key, players can rebind in GTA settings
     HotbarSlots = 5,            -- slots 1-5 of the player inventory are used with keys 1-5
 
     -- weights are in grams
@@ -22,7 +22,7 @@ InvConfig = {
     GiveRange = 3.0,
 
     -- Cash is an item in your inventory, kept equal to your arca_core cash balance.
-    -- Dropping, giving or storing it moves the money; AddMoney/RemoveMoney from scripts update the item.
+    -- Dropping, giving or storing it moves the money; AddMoney/RemoveMoney from arca_core.
     CashItem = true,
 
     -- Shops: drag an item from the shop into your inventory to buy it (amount box = quantity)
@@ -88,4 +88,17 @@ InvConfig = {
         },
     },
     SaveInterval = 60,          -- seconds between saving changed inventories
+}
+
+-- Item rarity: set rarity = 'common' | 'uncommon' | 'rare' | 'legendary' on items in shared/items.lua.
+-- Each rarity gives the inventory slot its own highlight. Set Enabled = false to turn it off.
+InvConfig.Rarity = {
+    Enabled = true,
+    Default = 'common',             -- used for items without a rarity
+    Colors = {
+        common = '#9aa3ad',
+        uncommon = '#3ecf72',
+        rare = '#4c8dff',
+        legendary = '#ffb547',
+    },
 }

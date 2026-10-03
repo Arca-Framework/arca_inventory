@@ -9,7 +9,7 @@ version '0.1.0'
 
 shared_scripts {
     '@arca_core/shared/import.lua',
-    'config.lua',
+    'shared/config.lua',
     'shared/items.lua',
 }
 

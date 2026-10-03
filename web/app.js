@@ -15,6 +15,16 @@ let inventories = {};   // id -> payload
 let order = [];         // window ids, player first
 let selected = null;    // { inv, slot }
 let payment = ['cash', 'bank'];
+let rarityCfg = { Enabled: false, Colors: {} };
+
+// rgba() variants of a rarity colour (avoids color-mix, which older FiveM browsers lack)
+function rarityVars(hex) {
+    const n = parseInt(String(hex).replace('#', ''), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return `--r:${hex};--r15:rgba(${r},${g},${b},.15);--r25:rgba(${r},${g},${b},.25);--r40:rgba(${r},${g},${b},.4);--rl:rgb(${Math.round(r + (255 - r) * .45)},${Math.round(g + (255 - g) * .45)},${Math.round(b + (255 - b) * .45)})`;
+}
+
+const rarityOf = (d) => (rarityCfg.Enabled && d && d.rarity && rarityCfg.Colors[d.rarity] ? d.rarity : null);
 let cart = { shop: null, lines: {} }; // lines[slot] = count
 
 /* ---------- layout (saved per container type in this player's browser) ---------- */
@@ -51,7 +61,9 @@ function itemHtml(item) {
         : item.name === 'cash'
             ? `<span class="count">$${Number(item.count).toLocaleString('en-US')}</span>`
             : `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
-    return `<div class="item" data-name="${esc(item.name)}">
+    const rarity = rarityOf(d);
+    const rarityAttr = rarity ? ` data-rarity="${esc(rarity)}" style="${esc(rarityVars(rarityCfg.Colors[rarity]))}"` : '';
+    return `<div class="item${rarity ? ' rarity' : ''}" data-name="${esc(item.name)}"${rarityAttr}>
         ${top}${stock}
         <span class="img"><img src="images/${esc(item.name)}.png" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'${icon}'}))"></span>
         <span class="label">${esc(d.label)}</span>
@@ -293,7 +305,9 @@ function moveTooltip(e) {
     const meta = Object.entries(item.metadata || {})
         .filter(([, v]) => typeof v !== 'object')
         .map(([k, v]) => `<div class="meta"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+    const rarity = rarityOf(d);
     tooltip.innerHTML = `<strong>${esc(d.label || item.name)}</strong>` +
+        (rarity ? `<span class="tag" style="--r:${esc(rarityCfg.Colors[rarity])}">${esc(rarity)}</span>` : '') +
         (d.description ? `<p>${esc(d.description)}</p>` : '') +
         `<div class="meta"><span>Weight</span><b>${kg((d.weight || 0) * item.count)}kg</b></div>` +
         (item.metadata && item.metadata.price !== undefined
@@ -467,6 +481,7 @@ window.addEventListener('message', ({ data }) => {
     switch (data.action) {
         case 'open':
             defs = d.items || {};
+            rarityCfg = d.rarity || rarityCfg;
             inventories = {};
             order = [d.player.id];
             inventories[d.player.id] = d.player;
@@ -514,7 +529,9 @@ if (location.search.includes('preview')) {
         phone: { label: 'Phone', weight: 200, icon: 'fa-solid fa-mobile-screen' },
         pistol_ammo: { label: 'Pistol Ammo', weight: 200, stack: true, icon: 'fa-solid fa-grip-lines-vertical' },
     };
+    Object.assign(items.water, { rarity: 'common' }); Object.assign(items.medikit, { rarity: 'rare' }); Object.assign(items.armor, { rarity: 'legendary' }); Object.assign(items.phone, { rarity: 'uncommon' }); Object.assign(items.backpack, { rarity: 'rare' }); Object.assign(items.pistol_ammo, { rarity: 'uncommon' });
     window.postMessage({ action: 'open', data: {
+        rarity: { Enabled: true, Colors: { common: '#9aa3ad', uncommon: '#3ecf72', rare: '#4c8dff', legendary: '#ffb547' } },
         items,
         player: { id: 'player:1', type: 'player', label: 'Inventory', slots: 30, maxWeight: 30000, weight: 17000, items: [
             { slot: 1, name: 'water', count: 3 }, { slot: 2, name: 'bread', count: 1 }, { slot: 3, name: 'armor', count: 1 },
