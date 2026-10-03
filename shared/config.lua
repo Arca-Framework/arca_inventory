@@ -2,6 +2,9 @@ InvConfig = {
     OpenKey = 'I',            -- default key, players can rebind in GTA settings
     HotbarSlots = 5,            -- slots 1-5 of the player inventory are used with keys 1-5
 
+    -- true = weight limits + slots, false = slots only (weights below are then ignored)
+    UseWeight = true,
+
     -- weights are in grams
     Player = { slots = 30, weight = 30000 },
     Drop = { slots = 30, weight = 200000, range = 2.5 },

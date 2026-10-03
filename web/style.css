@@ -36,8 +36,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .w-head:active { cursor: grabbing; }
 .w-icon { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: rgba(0, 255, 106, .12); color: var(--accent); font-size: 12px; flex: none; }
 .w-weight { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 12px; font-weight: 700; color: var(--muted); min-width: 0; }
-.w-bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
-.w-fill { height: 100%; background: var(--accent); transition: width .25s; }
+.w-bar { display: block; flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.w-fill { display: block; height: 100%; background: var(--accent); transition: width .25s; }
 .w-fill.heavy { background: #ffb547; }
 .w-fill.full { background: #ff5468; }
 .w-title { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; }

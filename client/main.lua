@@ -77,7 +77,7 @@ local function openInventory(ctx)
         return exports.arca_core:Notify('Inventory failed to load', 'error')
     end
     isOpen = true
-    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui(), payment = InvConfig.ShopPayment, rarity = InvConfig.Rarity } })
+    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui(), payment = InvConfig.ShopPayment, rarity = InvConfig.Rarity, useWeight = InvConfig.UseWeight } })
     SetNuiFocus(true, true)
 end
 

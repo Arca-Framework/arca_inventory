@@ -15,6 +15,7 @@ let inventories = {};   // id -> payload
 let order = [];         // window ids, player first
 let selected = null;    // { inv, slot }
 let payment = ['cash', 'bank'];
+let useWeight = true;
 let rarityCfg = { Enabled: false, Colors: {} };
 
 // rgba() variants of a rarity colour (avoids color-mix, which older FiveM browsers lack)
@@ -76,10 +77,15 @@ function headHtml(inv) {
             <span class="w-weight">Click or drag items into your cart</span>
             <span class="w-title">${esc(inv.label)}</span>`;
     }
-    const pct = inv.maxWeight ? Math.min(100, (inv.weight / inv.maxWeight) * 100) : 0;
+    // weight mode fills by kg, slot-only mode fills by slots used
+    const used = inv.used ?? (inv.items || []).length;
+    const pct = useWeight
+        ? (inv.maxWeight ? Math.min(100, (inv.weight / inv.maxWeight) * 100) : 0)
+        : (inv.slots ? Math.min(100, (used / inv.slots) * 100) : 0);
     const cls = pct >= 100 ? 'full' : pct >= 80 ? 'heavy' : '';
+    const text = useWeight ? `${kg(inv.weight)}/${kg(inv.maxWeight)}kg` : `${used}/${inv.slots} slots`;
     return `<span class="w-icon"><i class="fa-solid ${ICONS[inv.type] || 'fa-box'}"></i></span>
-        <span class="w-weight">${kg(inv.weight)}/${kg(inv.maxWeight)}kg
+        <span class="w-weight">${text}
             <span class="w-bar"><span class="w-fill ${cls}" style="width:${pct}%"></span></span></span>
         <span class="w-title">${esc(inv.label)}</span>
         ${inv.type === 'player' ? '<button class="w-btn" data-reset title="Reset layout"><i class="fa-solid fa-table-cells-large"></i></button>' : ''}`;
@@ -309,7 +315,7 @@ function moveTooltip(e) {
     tooltip.innerHTML = `<strong>${esc(d.label || item.name)}</strong>` +
         (rarity ? `<span class="tag" style="--r:${esc(rarityCfg.Colors[rarity])}">${esc(rarity)}</span>` : '') +
         (d.description ? `<p>${esc(d.description)}</p>` : '') +
-        `<div class="meta"><span>Weight</span><b>${kg((d.weight || 0) * item.count)}kg</b></div>` +
+        (useWeight ? `<div class="meta"><span>Weight</span><b>${kg((d.weight || 0) * item.count)}kg</b></div>` : '') +
         (item.metadata && item.metadata.price !== undefined
             ? `<div class="meta"><span>Price</span><b>$${esc(item.metadata.price)}</b></div>`
             : `<div class="meta"><span>Amount</span><b>${item.count}</b></div>` + meta);
@@ -482,6 +488,7 @@ window.addEventListener('message', ({ data }) => {
         case 'open':
             defs = d.items || {};
             rarityCfg = d.rarity || rarityCfg;
+            useWeight = d.useWeight !== false;
             inventories = {};
             order = [d.player.id];
             inventories[d.player.id] = d.player;

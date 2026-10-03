@@ -16,6 +16,17 @@ local function sameMeta(a, b)
     return json.encode(a or {}) == json.encode(b or {})
 end
 
+---false when the weight is over the limit (always true when InvConfig.UseWeight is off)
+local function fitsWeight(inv, weight)
+    return not InvConfig.UseWeight or weight <= inv.maxWeight
+end
+
+local function usedSlots(inv)
+    local n = 0
+    for _ in pairs(inv.items) do n = n + 1 end
+    return n
+end
+
 local function weightOf(inv)
     local total = 0
     for _, item in pairs(inv.items) do
@@ -48,7 +59,7 @@ end
 local function payload(inv)
     return {
         id = inv.id, type = inv.type, label = inv.label,
-        slots = inv.slots, maxWeight = inv.maxWeight, weight = weightOf(inv),
+        slots = inv.slots, maxWeight = inv.maxWeight, weight = weightOf(inv), used = usedSlots(inv),
         items = toList(inv),
     }
 end
@@ -157,7 +168,7 @@ end
 local function canCarry(inv, name, count)
     local d = def(name)
     if not d then return false end
-    return weightOf(inv) + d.weight * count <= inv.maxWeight
+    return fitsWeight(inv, weightOf(inv) + d.weight * count)
 end
 
 local function freeSlot(inv)
@@ -505,7 +516,7 @@ local function fits(inv, lines)
             free = free - line.count
         end
     end
-    return weight <= inv.maxWeight and free >= 0
+    return fitsWeight(inv, weight) and free >= 0
 end
 
 ---Buys everything in the cart in one go, paid from the chosen account
@@ -607,7 +618,7 @@ RegisterNetEvent('arca_inventory:move', function(data)
 
     if not target or (target.name == item.name and d.stack and sameMeta(target.metadata, item.metadata)) then
         -- move / merge
-        if from ~= to and weightOf(to) + d.weight * count > to.maxWeight then
+        if from ~= to and not fitsWeight(to, weightOf(to) + d.weight * count) then
             return TriggerClientEvent('arca_core:notify', src, 'Not enough space', 'error')
         end
         if target then
@@ -624,7 +635,7 @@ RegisterNetEvent('arca_inventory:move', function(data)
             local td = def(target.name)
             local toWeight = weightOf(to) - td.weight * target.count + d.weight * item.count
             local fromWeight = weightOf(from) - d.weight * item.count + td.weight * target.count
-            if toWeight > to.maxWeight or fromWeight > from.maxWeight then
+            if not fitsWeight(to, toWeight) or not fitsWeight(from, fromWeight) then
                 return TriggerClientEvent('arca_core:notify', src, 'Not enough space', 'error')
             end
         end
