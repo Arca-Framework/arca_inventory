@@ -169,7 +169,11 @@ AddEventHandler('playerDropped', function() unloadPlayer(source) end)
 ---Resolves an export target (server id or inventory id) to an inventory
 local function resolve(target)
     if type(target) == 'number' then return Inventories[PlayerInv[target]] end
-    return Inventories[target]
+    if Inventories[target] then return Inventories[target] end
+    -- registered stashes load on demand, so scripts can fill one nobody has opened yet
+    local stashId = type(target) == 'string' and target:match('^stash:(.+)$')
+    local stash = stashId and Stashes[stashId]
+    if stash then return load(target, 'stash', stash.label, stash.slots, stash.weight) end
 end
 
 ---------------------------------------------------------------------
