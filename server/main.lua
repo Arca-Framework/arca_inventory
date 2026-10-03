@@ -320,7 +320,8 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
     end
 
     -- the ground (nearest drop, or an empty one created on first use) only when on foot
-    local onFoot = GetVehiclePedIsIn(ped, false) == 0
+    -- and not already looking into a trunk / glovebox / stash
+    local onFoot = GetVehiclePedIsIn(ped, false) == 0 and #others == 0
     local drop = onFoot and nearestDrop(src)
     if drop then others[#others + 1] = drop end
 
