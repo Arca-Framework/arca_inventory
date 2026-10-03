@@ -493,3 +493,8 @@ AddEventHandler('onClientResourceStart', function(resource)
     -- arca_target forgets local-entity options when it restarts: respawn shopkeepers so they re-register
     for key, ped in pairs(shopPeds) do DeleteEntity(ped) shopPeds[key] = nil end
 end)
+
+-- radial menu entry
+CreateThread(function()
+    exports.arca_core:AddRadialItem({ id = 'arca_inventory', label = 'Inventory', icon = 'fa-solid fa-box-open', onSelect = function() openInventory() end })
+end)
