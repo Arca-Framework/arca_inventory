@@ -47,10 +47,57 @@ end
 ---------------------------------------------------------------------
 -- Open / close
 ---------------------------------------------------------------------
+---------------------------------------------------------------------
+-- Busy state: while busy the inventory won't open and hotbar keys do nothing
+---------------------------------------------------------------------
+local busyReasons = {} -- [reason] = true, set by SetBusy from any resource
+
+---Why the player can't use the inventory right now, or nil if they can
+local function busyReason()
+    if next(busyReasons) then return 'busy' end
+    if LocalPlayer.state.invBusy then return 'busy' end            -- server: Player(src).state.invBusy = true
+    if exports.arca_core:ProgressActive() then return 'busy' end    -- any arca_core progress bar
+    local ped = PlayerPedId()
+    if IsEntityDead(ped) then return 'dead' end
+    if IsPedRagdoll(ped) or IsPedFalling(ped) or IsPedGettingIntoAVehicle(ped) then return 'busy' end
+    local meta = (exports.arca_core:GetPlayerData() or {}).metadata or {}
+    if meta.isdead or meta.inlaststand then return 'dead' end
+    if meta.ishandcuffed or LocalPlayer.state.isCuffed then return 'cuffed' end
+end
+
+local lastBusyNotify = 0
+local function blockedByBusy()
+    local reason = busyReason()
+    if not reason then return false end
+    if reason ~= 'dead' and GetGameTimer() - lastBusyNotify > 1500 then
+        lastBusyNotify = GetGameTimer()
+        exports.arca_core:Notify(reason == 'cuffed' and 'You can\'t reach your pockets' or 'You\'re busy right now', 'error')
+    end
+    return true
+end
+
+local closeInventory -- defined below
+
+---Mark the player busy (or not) from any resource. Each reason is tracked on its own, so two
+---scripts can be busy at once. Going busy closes an open inventory.
+---@param state boolean
+---@param reason? string defaults to the calling resource's name
+exports('SetBusy', function(state, reason)
+    reason = reason or GetInvokingResource() or 'unknown'
+    busyReasons[reason] = state and true or nil
+    if state and closeInventory then closeInventory() end
+end)
+exports('IsBusy', function() return busyReason() ~= nil end)
+
+-- the server set the statebag: close if it's open
+AddStateBagChangeHandler('invBusy', ('player:%s'):format(GetPlayerServerId(PlayerId())), function(_, _, value)
+    if value and closeInventory then closeInventory() end
+end)
+
 local function openInventory(ctx)
     if isOpen or not exports.arca_core:IsLoggedIn() or IsPauseMenuActive() then return end
+    if blockedByBusy() then return end
     local ped = PlayerPedId()
-    if IsEntityDead(ped) then return end
 
     ctx = ctx or {}
     if not (ctx.stash or ctx.shop or ctx.dumpster or ctx.player) then
@@ -81,7 +128,7 @@ local function openInventory(ctx)
     SetNuiFocus(true, true)
 end
 
-local function closeInventory()
+function closeInventory()
     if not isOpen then return end
     isOpen = false
     SendNUIMessage({ action = 'close' })
@@ -98,6 +145,7 @@ RegisterKeyMapping('inventory', 'Open inventory', 'keyboard', InvConfig.OpenKey)
 for i = 1, InvConfig.HotbarSlots do
     RegisterCommand('hotbar' .. i, function()
         if isOpen or not exports.arca_core:IsLoggedIn() or IsNuiFocused() then return end
+        if blockedByBusy() then return end
         if myInventory then
             SendNUIMessage({ action = 'hotbar', data = { inventory = myInventory, slot = i } })
         end
@@ -229,6 +277,8 @@ end)
 
 RegisterNUICallback('use', function(data, cb)
     cb(1)
+    -- e.g. still eating the last item: don't start another use
+    if blockedByBusy() then return end
     TriggerServerEvent('arca_inventory:use', data.slot)
 end)
 
