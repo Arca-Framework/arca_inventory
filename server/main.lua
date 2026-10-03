@@ -722,7 +722,11 @@ RegisterNetEvent('arca_inventory:use', function(slot)
     end
     local d = def(item.name)
     if d.close then TriggerClientEvent('arca_inventory:client:forceClose', src) end
-    fn(src, { name = item.name, label = d.label, slot = tonumber(slot), count = item.count, amount = item.count, metadata = item.metadata, info = item.metadata })
+    local ok, err = pcall(fn, src, { name = item.name, label = d.label, slot = tonumber(slot), count = item.count, amount = item.count, metadata = item.metadata, info = item.metadata })
+    if not ok then
+        print(('^1[arca_inventory] using %s failed: %s^7'):format(item.name, tostring(err)))
+        TriggerClientEvent('arca_core:notify', src, ('%s can\'t be used right now'):format(d.label), 'error')
+    end
 end)
 
 RegisterNetEvent('arca_inventory:give', function(target, slot, count)
