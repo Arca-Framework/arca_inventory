@@ -318,13 +318,18 @@ function moveTooltip(e) {
     const item = slotEl && itemAt(slotEl.dataset.inv, Number(slotEl.dataset.slot));
     if (!item) return hideTooltip();
     const d = defs[item.name] || {};
-    const LABELS = { serial: 'Serial', ammo: 'Ammo', durability: 'Durability', registered: 'Registered to', holder: 'Holder' };
+    const LABELS = { serial: 'Serial', ammo: 'Ammo', durability: 'Durability', registered: 'Registered to', holder: 'Holder', number: 'Number' };
     let meta = Object.entries(item.metadata || {})
         .filter(([, v]) => typeof v !== 'object')
         .map(([k, v]) => `<div class="meta"><span>${esc(LABELS[k] || k)}</span><b>${esc(k === 'durability' ? `${Math.round(v)}%` : v)}</b></div>`).join('');
     const comps = (item.metadata && item.metadata.components) || [];
     if (comps.length) {
         meta += `<div class="meta"><span>Attachments</span><b>${comps.map((c) => esc((defs[c] || {}).label || c)).join(', ')}</b></div>`;
+    }
+    if (d.chip) {
+        const chip = (item.metadata || {}).chip;
+        meta += `<div class="meta"><span>Chip</span><b>${chip ? esc(chip.number) : 'None'}</b></div>`;
+        if (slotEl.dataset.inv === order[0]) meta += `<p class="hint-small">Right-click to see the chip</p>`;
     }
     if (d.weapon && slotEl.dataset.inv === order[0]) meta += `<p class="hint-small">Right-click for attachments</p>`;
     const rarity = rarityOf(d);
@@ -583,6 +588,7 @@ document.addEventListener('contextmenu', (e) => {
     const slot = Number(slotEl.dataset.slot);
     const item = itemAt(order[0], slot);
     const d = item && defs[item.name];
+    if (d && d.chip) return showChipMenu(e, slot, item, d);
     if (!d || !d.weapon) return;
 
     const meta = item.metadata || {};
@@ -606,7 +612,36 @@ document.addEventListener('contextmenu', (e) => {
     weaponMenu.dataset.slot = slot;
 });
 
+/* ---------- phone chips (right-click a phone) ---------- */
+function showChipMenu(e, slot, item, d) {
+    const chip = (item.metadata || {}).chip;
+    const own = inventories[order[0]];
+    const spare = (own && own.items || []).find((it) => it.name === 'phone_chip');
+    weaponMenu.innerHTML =
+        `<div class="wm-head"><strong>${esc(d.label)}</strong><span><i class="fa-solid fa-sim-card"></i> Chip</span></div>` +
+        (chip
+            ? `<div class="wm-stats"><div><span>Number</span><b>${esc(chip.number)}</b></div></div>` +
+              `<div class="wm-empty">Contacts and messages are stored on this chip.</div>` +
+              `<div class="wm-row"><span>Take the chip out</span><button data-chip="remove">Remove</button></div>`
+            : `<div class="wm-empty">No chip inserted &mdash; the phone won't work without one.</div>` +
+              (spare
+                  ? `<div class="wm-row"><span>Chip ${esc((spare.metadata || {}).number || '')}</span><button data-chip="insert">Insert</button></div>`
+                  : `<div class="wm-empty">Buy a phone chip at an electronics store.</div>`));
+    weaponMenu.classList.remove('hidden');
+    hideTooltip();
+    const r = weaponMenu.getBoundingClientRect();
+    weaponMenu.style.left = `${Math.min(window.innerWidth - r.width - 10, e.clientX)}px`;
+    weaponMenu.style.top = `${Math.min(window.innerHeight - r.height - 10, e.clientY)}px`;
+    weaponMenu.dataset.slot = slot;
+}
+
 weaponMenu.addEventListener('click', (e) => {
+    const chipBtn = e.target.closest('[data-chip]');
+    if (chipBtn) {
+        post('chipAction', { slot: Number(weaponMenu.dataset.slot), action: chipBtn.dataset.chip });
+        weaponMenu.classList.add('hidden');
+        return;
+    }
     const btn = e.target.closest('[data-detach]');
     if (!btn) return;
     post('detach', { slot: Number(weaponMenu.dataset.slot), attachment: btn.dataset.detach });

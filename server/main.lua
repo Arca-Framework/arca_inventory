@@ -226,6 +226,14 @@ local function addItem(inv, name, count, metadata, slot)
             local meta = {}
             for k, v in pairs(metadata) do meta[k] = v end
             if d.weapon then WeaponDefaults(d, meta) end
+            -- phones come with a chip, chips come with a number (numbers are created by arca_phone)
+            if (d.chip and meta.chip == nil and not meta.nochip) or (d.chipItem and not meta.number) then
+                local ok, number = pcall(function() return exports.arca_phone:NewChipNumber() end)
+                if ok and number then
+                    if d.chip then meta.chip = { number = number } else meta.number = number end
+                end
+            end
+            meta.nochip = nil
             inv.items[s] = { name = name, count = 1, metadata = meta }
             slot = nil
         end
@@ -847,6 +855,16 @@ exports('RegisterStash', function(id, data)
 end)
 
 exports('GetItems', function() return InvItems end)
+
+---Replaces the metadata of the item in a slot (e.g. a phone's chip)
+exports('SetMetadata', function(target, slot, metadata)
+    local inv = resolve(target)
+    local item = inv and inv.items[tonumber(slot)]
+    if not item or type(metadata) ~= 'table' then return false end
+    item.metadata = metadata
+    changed(inv)
+    return true
+end)
 
 ---Opens another player's inventory next to the admin's own (permission checked on open)
 exports('OpenPlayerInventory', function(src, target)

@@ -16,7 +16,9 @@ InvItems = {
     armor = { label = 'Body Armor', rarity = 'legendary', weight = 3000, stack = true, close = true, icon = 'fa-solid fa-shield-halved', description = 'Bulletproof vest.' },
     repairkit = { label = 'Repair Kit', rarity = 'rare', weight = 2500, stack = true, close = true, icon = 'fa-solid fa-screwdriver-wrench', description = 'Fixes a vehicle engine.' },
     lockpick = { label = 'Lockpick', rarity = 'uncommon', weight = 150, stack = true, close = true, icon = 'fa-solid fa-key', description = 'For doors that are not yours.' },
-    phone = { label = 'Phone', rarity = 'uncommon', weight = 200, stack = false, icon = 'fa-solid fa-mobile-screen', description = 'Your smartphone.' },
+    -- chip = true: the phone holds a phone chip (number, contacts, messages live on the chip, see arca_phone)
+    phone = { label = 'Phone', rarity = 'uncommon', weight = 200, stack = false, chip = true, icon = 'fa-solid fa-mobile-screen', description = 'An iFruit smartphone. Right-click to see its chip.' },
+    phone_chip = { label = 'Phone Chip', rarity = 'uncommon', weight = 5, stack = false, chipItem = true, icon = 'fa-solid fa-sim-card', description = 'Holds a phone number, contacts and messages.' },
     radio = { label = 'Radio', rarity = 'uncommon', weight = 500, stack = false, icon = 'fa-solid fa-walkie-talkie', description = 'Talk on radio channels.' },
     id_card = { label = 'ID Card', rarity = 'uncommon', weight = 10, stack = false, icon = 'fa-solid fa-id-card', description = 'Citizen identification.' },
     backpack = { label = 'Backpack', rarity = 'rare', weight = 1000, stack = false, icon = 'fa-solid fa-suitcase', description = 'Carry more things.' },

@@ -72,6 +72,20 @@ InvConfig = {
             -- groups = { mechanic = 0 },   -- optional: only these jobs/gangs (min grade)
         },
         {
+            id = 'electronics', label = 'Digital Den',
+            ped = 'a_m_y_hipster_01',
+            blip = { sprite = 521, color = 26 },
+            locations = {
+                vector4(-656.69, -858.68, 24.49, 0.0),     -- Little Seoul
+                vector4(1137.56, -470.74, 66.67, 255.0),   -- Mirror Park
+            },
+            items = {
+                { name = 'phone', price = 600 },
+                { name = 'phone_chip', price = 150 },
+                { name = 'radio', price = 250 },
+            },
+        },
+        {
             -- weapons with licence = '...' (shared/items.lua) need that licence to buy.
             -- register = true writes every weapon sold here to the registry under the buyer's name.
             id = 'ammunation', label = 'Ammu-Nation',

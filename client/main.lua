@@ -10,7 +10,7 @@ local function itemsForNui()
     local list = {}
     for name, d in pairs(InvItems) do
         local rarity = InvConfig.Rarity.Enabled and (d.rarity or InvConfig.Rarity.Default) or nil
-        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity, weapon = d.weapon ~= nil and not d.throwable, throwable = d.throwable, attachment = d.attachment ~= nil }
+        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity, weapon = d.weapon ~= nil and not d.throwable, throwable = d.throwable, attachment = d.attachment ~= nil, chip = d.chip }
     end
     return list
 end
@@ -138,7 +138,8 @@ function closeInventory()
     openTrunk = nil
 end
 
-RegisterCommand('inventory', function() openInventory() end, false)
+-- not while another UI has focus (e.g. typing an 'i' on the phone)
+RegisterCommand('inventory', function() if not IsNuiFocused() then openInventory() end end, false)
 RegisterKeyMapping('inventory', 'Open inventory', 'keyboard', InvConfig.OpenKey)
 
 -- hotbar: keys 1-5 use the first slots of your inventory
@@ -279,6 +280,12 @@ end)
 RegisterNUICallback('checkout', function(data, cb)
     local ok, err = Arca.Callback.Await('arca_inventory:checkout', data)
     cb({ ok = ok, error = err })
+end)
+
+-- phone chips (right-click a phone): handled by arca_phone
+RegisterNUICallback('chipAction', function(data, cb)
+    cb(1)
+    TriggerServerEvent('arca_phone:server:chipAction', data.slot, data.action)
 end)
 
 RegisterNUICallback('detach', function(data, cb)
