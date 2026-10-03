@@ -65,13 +65,14 @@ end
 
 local function load(id, invType, label, slots, maxWeight)
     if Inventories[id] then return Inventories[id] end
-    local raw = invType ~= 'drop' and MySQL.scalar.await('SELECT items FROM arca_inventories WHERE id = ?', { id })
+    local raw = (invType ~= 'drop' and invType ~= 'dumpster') and MySQL.scalar.await('SELECT items FROM arca_inventories WHERE id = ?', { id })
     local list = raw and json.decode(raw) or {}
     return create(id, invType, label, slots, maxWeight, fromList(list, slots))
 end
 
 local function save(inv)
-    if not inv.dirty or inv.type == 'drop' then return end
+    -- drops, shops and dumpsters only live in memory
+    if not inv.dirty or inv.type == 'drop' or inv.type == 'shop' or inv.type == 'dumpster' then return end
     inv.dirty = false
     MySQL.prepare('INSERT INTO arca_inventories (id, items) VALUES (?, ?) ON DUPLICATE KEY UPDATE items = VALUES(items)', {
         inv.id, json.encode(toList(inv)),
@@ -272,6 +273,111 @@ local function nearestDrop(src)
     return best
 end
 
+local function inGroups(src, groups)
+    if not groups then return true end
+    local player = exports.arca_core:GetPlayer(src)
+    if not player then return false end
+    local job, gang = player.PlayerData.job, player.PlayerData.gang
+    if groups[job.name] and job.grade.level >= groups[job.name] then return true end
+    if gang and groups[gang.name] and gang.grade.level >= groups[gang.name] then return true end
+    return false
+end
+
+---------------------------------------------------------------------
+-- Shops (in-memory inventories; dragging out of them = buying)
+---------------------------------------------------------------------
+local ShopsById = {}
+
+local function buildShops()
+    for _, shop in ipairs(InvConfig.Shops or {}) do
+        ShopsById[shop.id] = shop
+        local items = {}
+        for i, entry in ipairs(shop.items) do
+            if def(entry.name) then
+                items[i] = {
+                    name = entry.name,
+                    count = entry.stock or 1,
+                    metadata = { price = entry.price, unlimited = entry.stock == nil },
+                }
+            end
+        end
+        create('shop:' .. shop.id, 'shop', shop.label, #shop.items, 0, items)
+    end
+end
+
+local function purchase(src, shop, slot, to, toSlot, count)
+    if to.id ~= PlayerInv[src] then return end
+    local entry = shop.items[slot]
+    if not entry then return end
+    local price, unlimited = entry.metadata.price, entry.metadata.unlimited
+    if not def(entry.name).stack then count = 1 end
+    if not unlimited then count = math.min(count, entry.count) end
+    if count < 1 then return end
+
+    if not canCarry(to, entry.name, count) then
+        return TriggerClientEvent('arca_core:notify', src, 'You can\'t carry that much', 'error')
+    end
+
+    local cost = price * count
+    local player = exports.arca_core:GetPlayer(src)
+    if not player then return end
+    local paid
+    for _, account in ipairs(InvConfig.ShopPayment) do
+        if (player.PlayerData.money[account] or 0) >= cost and player.RemoveMoney(account, cost, 'shop: ' .. shop.label) then
+            paid = account
+            break
+        end
+    end
+    if not paid then
+        return TriggerClientEvent('arca_core:notify', src, ('You need $%d'):format(cost), 'error')
+    end
+
+    local target = toSlot and not to.items[toSlot] and toSlot or nil
+    if not addItem(to, entry.name, count, nil, target) then
+        player.AddMoney(paid, cost, 'shop refund')
+        return TriggerClientEvent('arca_core:notify', src, 'No free slot', 'error')
+    end
+
+    if not unlimited then
+        entry.count = entry.count - count
+        if entry.count <= 0 then shop.items[slot] = nil end
+        changed(shop)
+    end
+    TriggerClientEvent('arca_core:notify', src, ('Bought %dx %s for $%d'):format(count, def(entry.name).label, cost), 'success')
+end
+
+---------------------------------------------------------------------
+-- Dumpsters (in-memory, keyed by position)
+---------------------------------------------------------------------
+local searched = {} -- [id] = os.time() of last search
+
+local function dumpsterAt(c)
+    local id = ('dumpster:%d:%d:%d'):format(math.floor(c.x), math.floor(c.y), math.floor(c.z))
+    local cfg = InvConfig.Dumpsters
+    local inv = Inventories[id] or create(id, 'dumpster', 'Dumpster', cfg.slots, cfg.weight)
+    return inv
+end
+
+local function searchDumpster(src, inv)
+    local cfg = InvConfig.Dumpsters
+    local now = os.time()
+    if searched[inv.id] and now - searched[inv.id] < cfg.cooldown then
+        return TriggerClientEvent('arca_core:notify', src, 'Someone already went through this one', 'inform')
+    end
+    searched[inv.id] = now
+
+    local found = 0
+    for _ = 1, math.random(cfg.rolls[1], cfg.rolls[2]) do
+        for _, loot in ipairs(cfg.loot) do
+            if math.random(100) <= loot.chance then
+                if addItem(inv, loot.name, math.random(loot.min, loot.max)) then found = found + 1 end
+                break
+            end
+        end
+    end
+    TriggerClientEvent('arca_core:notify', src, found > 0 and 'You found something' or 'Nothing but trash', found > 0 and 'success' or 'inform')
+end
+
 Arca.Callback.Register('arca_inventory:open', function(src, ctx)
     local own = Inventories[PlayerInv[src]]
     if not own then
@@ -316,6 +422,19 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
             if allowed then
                 others[#others + 1] = load('stash:' .. ctx.stash, 'stash', stash.label, stash.slots, stash.weight)
             end
+        end
+    elseif ctx.shop then
+        local shop = ShopsById[ctx.shop]
+        local loc = shop and shop.locations[tonumber(ctx.location) or 0]
+        if loc and distance(src, loc) <= 4.0 and inGroups(src, shop.groups) then
+            others[#others + 1] = Inventories['shop:' .. shop.id]
+        end
+    elseif ctx.dumpster then
+        local c = ctx.dumpster
+        if type(c) == 'table' and tonumber(c.x) and distance(src, c) <= 3.5 then
+            local inv = dumpsterAt(c)
+            if ctx.search then searchDumpster(src, inv) end
+            others[#others + 1] = inv
         end
     end
 
@@ -378,6 +497,12 @@ RegisterNetEvent('arca_inventory:move', function(data)
         to = Inventories[toId]
     end
     if not to then return end
+
+    -- shops are read-only: you can only take from them, which buys the item
+    if to.type == 'shop' then return end
+    if from.type == 'shop' then
+        return purchase(src, from, fromSlot, to, toSlot, math.max(1, math.floor(tonumber(data.count) or 1)))
+    end
 
     local d = def(item.name)
     local count = math.floor(tonumber(data.count) or item.count)
@@ -585,6 +710,8 @@ CreateThread(function()
             PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ]])
+
+    buildShops()
 
     -- give qb-style resources the item list through the arca_core bridge
     local qbItems = {}

@@ -102,3 +102,9 @@ kbd { padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, .1);
 #hotbar { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); display: flex; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(16, 20, 24, .92); border: 1px solid var(--border); animation: pop .15s ease-out; }
 #hotbar .slot { --slot-size: 72px; }
 #hotbar .slot.used { border-color: var(--accent); background: rgba(0, 255, 106, .12); }
+
+/* ---------- shop ---------- */
+.item .price { align-self: flex-end; font-size: 12px; font-weight: 800; color: var(--accent); }
+.item .stock { position: absolute; top: 5px; left: 6px; font-size: 9.5px; font-weight: 700; color: var(--muted); }
+.window[data-type="shop"] .slot { cursor: grab; }
+.window[data-type="shop"] .w-weight { font-weight: 600; }

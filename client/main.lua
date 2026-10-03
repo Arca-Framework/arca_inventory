@@ -52,7 +52,7 @@ local function openInventory(ctx)
     if IsEntityDead(ped) then return end
 
     ctx = ctx or {}
-    if not ctx.stash then
+    if not (ctx.stash or ctx.shop or ctx.dumpster) then
         if IsPedInAnyVehicle(ped, false) then
             ctx.glovebox = true
         else
@@ -276,3 +276,133 @@ end)
 
 exports('GetItemCount', count)
 exports('GetPlayerItems', function() return myInventory and myInventory.items or {} end)
+
+---------------------------------------------------------------------
+-- Shops: blips, shopkeeper peds (spawned when close) and how to open them
+---------------------------------------------------------------------
+local hasTarget = function() return GetResourceState('arca_target') == 'started' end
+local shopPeds = {} -- ["shopId:index"] = ped
+
+local function openShop(shopId, index)
+    openInventory({ shop = shopId, location = index })
+end
+
+CreateThread(function()
+    for _, shop in ipairs(InvConfig.Shops or {}) do
+        if shop.blip then
+            for _, loc in ipairs(shop.locations) do
+                local blip = AddBlipForCoord(loc.x, loc.y, loc.z)
+                SetBlipSprite(blip, shop.blip.sprite or 52)
+                SetBlipColour(blip, shop.blip.color or 2)
+                SetBlipScale(blip, shop.blip.scale or 0.7)
+                SetBlipAsShortRange(blip, true)
+                BeginTextCommandSetBlipName('STRING')
+                AddTextComponentSubstringPlayerName(shop.label)
+                EndTextCommandSetBlipName(blip)
+            end
+        end
+    end
+end)
+
+local function spawnShopPed(shop, index, loc)
+    local model = joaat(shop.ped or 'mp_m_shopkeep_01')
+    RequestModel(model)
+    local timeout = GetGameTimer() + 5000
+    while not HasModelLoaded(model) and GetGameTimer() < timeout do Wait(0) end
+    if not HasModelLoaded(model) then return end
+
+    local ped = CreatePed(4, model, loc.x, loc.y, loc.z - 1.0, loc.w, false, true)
+    SetModelAsNoLongerNeeded(model)
+    FreezeEntityPosition(ped, true)
+    SetEntityInvincible(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    TaskStartScenarioInPlace(ped, 'WORLD_HUMAN_STAND_IMPATIENT', 0, true)
+
+    if hasTarget() then
+        exports.arca_target:addLocalEntity(ped, {
+            { name = 'arca_inventory:shop', label = ('Open %s'):format(shop.label), icon = 'fa-solid fa-store', distance = 3.0,
+              onSelect = function() openShop(shop.id, index) end },
+        })
+    end
+    return ped
+end
+
+local promptShown = false
+
+CreateThread(function()
+    while true do
+        local coords = GetEntityCoords(PlayerPedId())
+        local nearPrompt
+        for _, shop in ipairs(InvConfig.Shops or {}) do
+            for index, loc in ipairs(shop.locations) do
+                local key = shop.id .. ':' .. index
+                local dist = #(coords - vector3(loc.x, loc.y, loc.z))
+                if dist < 40.0 and not shopPeds[key] then
+                    shopPeds[key] = spawnShopPed(shop, index, loc)
+                elseif dist >= 50.0 and shopPeds[key] then
+                    DeleteEntity(shopPeds[key])
+                    shopPeds[key] = nil
+                end
+                if dist < 2.5 and not hasTarget() then nearPrompt = { shop = shop, index = index } end
+            end
+        end
+
+        -- without arca_target: walk up and press E
+        if nearPrompt and not isOpen then
+            exports.arca_core:ShowTextUI(('[E] %s'):format(nearPrompt.shop.label), { icon = 'fa-solid fa-store' })
+            promptShown = true
+            local untilTime = GetGameTimer() + 500
+            while GetGameTimer() < untilTime do
+                if IsControlJustPressed(0, 38) then
+                    exports.arca_core:HideTextUI()
+                    promptShown = false
+                    openShop(nearPrompt.shop.id, nearPrompt.index)
+                    break
+                end
+                Wait(0)
+            end
+        else
+            -- only hide the prompt we showed, never another resource's text UI
+            if promptShown then exports.arca_core:HideTextUI() promptShown = false end
+            Wait(500)
+        end
+    end
+end)
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    for _, ped in pairs(shopPeds) do DeleteEntity(ped) end
+end)
+
+---------------------------------------------------------------------
+-- Dumpsters: third eye -> search (progress) -> dumpster opens with whatever was found
+---------------------------------------------------------------------
+local function searchDumpster(entity)
+    local c = GetEntityCoords(entity)
+    TaskTurnPedToFaceEntity(PlayerPedId(), entity, 800)
+    Wait(800)
+    local done = exports.arca_core:Progress({
+        label = 'Searching dumpster',
+        duration = InvConfig.Dumpsters.searchTime,
+        canCancel = true,
+        disable = { move = true, car = true, combat = true },
+        anim = { dict = 'amb@prop_human_bum_bin@base', clip = 'base', flag = 1 },
+    })
+    if done then openInventory({ dumpster = { x = c.x, y = c.y, z = c.z }, search = true }) end
+end
+
+local function registerDumpsters()
+    exports.arca_target:addModel(InvConfig.Dumpsters.models, {
+        { name = 'arca_inventory:dumpster', label = 'Search dumpster', icon = 'fa-solid fa-dumpster', distance = 2.0,
+          canInteract = function() return not isOpen end,
+          onSelect = function(data) searchDumpster(data.entity) end },
+    })
+end
+
+if GetResourceState('arca_target') == 'started' then registerDumpsters() end
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= 'arca_target' then return end
+    registerDumpsters()
+    -- arca_target forgets local-entity options when it restarts: respawn shopkeepers so they re-register
+    for key, ped in pairs(shopPeds) do DeleteEntity(ped) shopPeds[key] = nil end
+end)

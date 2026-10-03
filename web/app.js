@@ -6,7 +6,7 @@ const post = (name, data = {}) =>
     fetch(`https://${resource}/${name}`, { method: 'POST', body: JSON.stringify(data) }).catch(() => {});
 const kg = (g) => (g / 1000).toFixed(g % 1000 === 0 ? 0 : 1);
 
-const ICONS = { player: 'fa-user', drop: 'fa-hand-holding', trunk: 'fa-car-rear', glovebox: 'fa-box', stash: 'fa-warehouse' };
+const ICONS = { player: 'fa-user', drop: 'fa-hand-holding', trunk: 'fa-car-rear', glovebox: 'fa-box', stash: 'fa-warehouse', shop: 'fa-store', dumpster: 'fa-dumpster' };
 const LAYOUT_KEY = 'arca_inventory_layout';
 const HOTBAR = 5;
 
@@ -42,14 +42,24 @@ function clamp(win, x, y) {
 function itemHtml(item) {
     const d = defs[item.name] || { label: item.name, icon: 'fa-solid fa-box' };
     const icon = esc(d.icon || 'fa-solid fa-box').replace(/[^\w\s-]/g, '');
+    const price = item.metadata && item.metadata.price;
+    const stock = price !== undefined && !item.metadata.unlimited ? `<span class="stock">${item.count} left</span>` : '';
+    const top = price !== undefined
+        ? `<span class="price">$${esc(price)}</span>`
+        : `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
     return `<div class="item" data-name="${esc(item.name)}">
-        <span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>
+        ${top}${stock}
         <span class="img"><img src="images/${esc(item.name)}.png" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'${icon}'}))"></span>
         <span class="label">${esc(d.label)}</span>
     </div>`;
 }
 
 function headHtml(inv) {
+    if (inv.type === 'shop') {
+        return `<span class="w-icon"><i class="fa-solid fa-store"></i></span>
+            <span class="w-weight">Drag an item into your inventory to buy</span>
+            <span class="w-title">${esc(inv.label)}</span>`;
+    }
     const pct = inv.maxWeight ? Math.min(100, (inv.weight / inv.maxWeight) * 100) : 0;
     const cls = pct >= 100 ? 'full' : pct >= 80 ? 'heavy' : '';
     return `<span class="w-icon"><i class="fa-solid ${ICONS[inv.type] || 'fa-box'}"></i></span>
@@ -231,8 +241,10 @@ document.addEventListener('mouseup', (e) => {
     const item = itemAt(d.inv, d.slot);
     if (!item) return;
     const amount = Number($('#amount')?.value) || 0;
-    let count = amount > 0 ? Math.min(amount, item.count) : item.count;
-    if (d.half && item.count > 1) count = Math.ceil(item.count / 2);
+    const isShop = inventories[d.inv]?.type === 'shop';
+    // from a shop the amount box is how many to buy (default 1); elsewhere 0 means the whole stack
+    let count = isShop ? Math.max(1, amount) : amount > 0 ? Math.min(amount, item.count) : item.count;
+    if (d.half && item.count > 1 && !isShop) count = Math.ceil(item.count / 2);
 
     post('move', { from: d.inv, fromSlot: d.slot, to: toInv, toSlot: slotEl ? Number(slotEl.dataset.slot) : null, count });
     selected = null;
@@ -259,7 +271,9 @@ function moveTooltip(e) {
     tooltip.innerHTML = `<strong>${esc(d.label || item.name)}</strong>` +
         (d.description ? `<p>${esc(d.description)}</p>` : '') +
         `<div class="meta"><span>Weight</span><b>${kg((d.weight || 0) * item.count)}kg</b></div>` +
-        `<div class="meta"><span>Amount</span><b>${item.count}</b></div>` + meta;
+        (item.metadata && item.metadata.price !== undefined
+            ? `<div class="meta"><span>Price</span><b>$${esc(item.metadata.price)}</b></div>`
+            : `<div class="meta"><span>Amount</span><b>${item.count}</b></div>` + meta);
     tooltip.classList.remove('hidden');
     const r = tooltip.getBoundingClientRect();
     tooltip.style.left = `${Math.min(window.innerWidth - r.width - 10, e.clientX + 16)}px`;
@@ -363,7 +377,7 @@ if (location.search.includes('preview')) {
         ] },
         others: [
             { id: 'trunk:ARCA', type: 'trunk', label: 'Trunk · ARCA1234', slots: 20, maxWeight: 40000, weight: 2000, items: [{ slot: 1, name: 'copper', count: 10 }] },
-            { id: 'newdrop', type: 'drop', label: 'Ground', slots: 10, maxWeight: 200000, weight: 0, items: [] },
+            { id: 'shop:247', type: 'shop', label: '24/7 Supermarket', slots: 6, maxWeight: 0, weight: 0, items: [{ slot: 1, name: 'water', count: 1, metadata: { price: 5, unlimited: true } }, { slot: 2, name: 'bread', count: 1, metadata: { price: 4, unlimited: true } }, { slot: 3, name: 'medikit', count: 12, metadata: { price: 150, unlimited: false } }] },
         ],
     } });
 }
