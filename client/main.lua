@@ -67,7 +67,12 @@ local function openInventory(ctx)
     end
 
     local data = Arca.Callback.Await('arca_inventory:open', ctx)
-    if not data then return end
+    if not data then
+        if openTrunk and DoesEntityExist(openTrunk) then SetVehicleDoorShut(openTrunk, 5, false) end
+        openTrunk = nil
+        print('^1[arca_inventory] server returned no inventory - check the server console for errors^7')
+        return exports.arca_core:Notify('Inventory failed to load', 'error')
+    end
     isOpen = true
     SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui() } })
     SetNuiFocus(true, true)

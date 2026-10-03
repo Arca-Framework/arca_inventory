@@ -274,7 +274,14 @@ end
 
 Arca.Callback.Register('arca_inventory:open', function(src, ctx)
     local own = Inventories[PlayerInv[src]]
-    if not own then return nil end
+    if not own then
+        -- loaded before this resource saw them log in: load on demand
+        local player = exports.arca_core:GetPlayer(src)
+        if not player then return nil end
+        loadPlayer(src, player.PlayerData.citizenid)
+        own = Inventories[PlayerInv[src]]
+        if not own then return nil end
+    end
     closeAll(src)
     ctx = type(ctx) == 'table' and ctx or {}
 
@@ -566,6 +573,16 @@ exports('GetItems', function() return InvItems end)
 -- Startup / saving
 ---------------------------------------------------------------------
 CreateThread(function()
+    -- make sure the table exists even if sql/inventory.sql was never run
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS `arca_inventories` (
+            `id` VARCHAR(100) NOT NULL,
+            `items` LONGTEXT NOT NULL,
+            `last_updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ]])
+
     -- give qb-style resources the item list through the arca_core bridge
     local qbItems = {}
     for name, d in pairs(InvItems) do
