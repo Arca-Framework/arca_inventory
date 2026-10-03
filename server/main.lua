@@ -319,8 +319,9 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
         end
     end
 
-    -- the ground is always available: the nearest drop, or an empty one that's created on first use
-    local drop = nearestDrop(src)
+    -- the ground (nearest drop, or an empty one created on first use) only when on foot
+    local onFoot = GetVehiclePedIsIn(ped, false) == 0
+    local drop = onFoot and nearestDrop(src)
     if drop then others[#others + 1] = drop end
 
     local list = {}
@@ -328,7 +329,7 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
         grantAccess(src, inv)
         list[#list + 1] = payload(inv)
     end
-    if not drop then
+    if onFoot and not drop then
         list[#list + 1] = { id = 'newdrop', type = 'drop', label = 'Ground', slots = InvConfig.Drop.slots, maxWeight = InvConfig.Drop.weight, weight = 0, items = {} }
     end
 
@@ -368,6 +369,7 @@ RegisterNetEvent('arca_inventory:move', function(data)
 
     local to
     if toId == 'newdrop' then
+        if GetVehiclePedIsIn(GetPlayerPed(tostring(src)), false) ~= 0 then return end
         to = createDrop(src)
         toSlot = nil
     else
