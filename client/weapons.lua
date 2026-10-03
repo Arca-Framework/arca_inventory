@@ -48,11 +48,16 @@ end
 -- Equip / holster
 ---------------------------------------------------------------------
 local function reportAmmo(force)
-    if not equipped or not equipped.ammoItem then return end
+    if not equipped or not (equipped.ammoItem or equipped.throwable) then return end
     local ammo = GetAmmoInPedWeapon(PlayerPedId(), equipped.hash)
     if force or ammo ~= lastAmmo then
         if lastAmmo and ammo < lastAmmo then
-            TriggerServerEvent('arca_inventory:weapon:ammo', equipped.slot, equipped.serial, ammo)
+            if equipped.throwable then
+                -- every throw uses up one item from the stack
+                TriggerServerEvent('arca_inventory:weapon:thrown', equipped.slot, lastAmmo - ammo)
+            else
+                TriggerServerEvent('arca_inventory:weapon:ammo', equipped.slot, equipped.serial, ammo)
+            end
         end
         lastAmmo = ammo
     end
@@ -73,8 +78,9 @@ local function equip(slot, item, info)
     if equipped then holster() end
 
     GiveWeaponToPed(ped, hash, 0, false, true)
-    local ammo = item.metadata.ammo or 0
-    if info.ammo then
+    -- throwables: the "ammo" is the number of items in the stack
+    local ammo = info.throwable and item.count or (item.metadata.ammo or 0)
+    if info.ammo or info.throwable then
         SetPedAmmo(ped, hash, ammo)
     end
     applyComponents(ped, hash, info.weapon, item.metadata.components)
@@ -82,9 +88,9 @@ local function equip(slot, item, info)
 
     equipped = {
         slot = slot, serial = item.metadata.serial, name = item.name, weapon = info.weapon,
-        hash = hash, ammoItem = info.ammo,
+        hash = hash, ammoItem = info.ammo, throwable = info.throwable,
     }
-    lastAmmo = info.ammo and ammo or nil
+    lastAmmo = (info.ammo or info.throwable) and ammo or nil
 end
 
 RegisterNetEvent('arca_inventory:client:useWeapon', function(slot, item, info)
@@ -149,6 +155,14 @@ RegisterNetEvent('arca_inventory:client:update', function(data)
     equipped.slot = item.slot
 
     local ped = PlayerPedId()
+    if equipped.throwable then
+        -- stack grew (picked more up) or shrank (moved some away)
+        if item.count ~= lastAmmo then
+            SetPedAmmo(ped, equipped.hash, item.count)
+            lastAmmo = item.count
+        end
+        return
+    end
     applyComponents(ped, equipped.hash, equipped.weapon, item.metadata.components)
     if equipped.ammoItem and item.metadata.ammo and item.metadata.ammo > (lastAmmo or 0) then
         SetPedAmmo(ped, equipped.hash, item.metadata.ammo)
@@ -199,6 +213,111 @@ CreateThread(function()
                     RemoveAllPedWeapons(ped, true)
                     if equipped then holster(true) end
                 end
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
+---------------------------------------------------------------------
+-- Repairs
+---------------------------------------------------------------------
+local repairing = false
+
+-- repair kit: fixes the weapon in your hands
+RegisterNetEvent('arca_inventory:client:useRepairKit', function(kitSlot)
+    if repairing then return end
+    if not equipped or equipped.throwable then
+        return exports.arca_core:Notify('Hold the weapon you want to repair', 'error')
+    end
+    local slot, serial = equipped.slot, equipped.serial
+    repairing = true
+    holster()
+    local done = exports.arca_core:Progress({
+        label = 'Repairing weapon',
+        duration = 5000,
+        canCancel = true,
+        disable = { move = true, car = true, combat = true },
+        anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 1 },
+    })
+    repairing = false
+    if done then TriggerServerEvent('arca_inventory:weapon:repairKit', slot, serial, kitSlot) end
+end)
+
+-- repair benches: pick a damaged weapon, pay, wait, done
+local function useBench(index)
+    if repairing then return end
+    local data = Arca.Callback.Await('arca_inventory:bench:list', index)
+    if not data then return end
+    if #data.list == 0 then
+        return exports.arca_core:Notify('None of your weapons need repairs', 'inform')
+    end
+
+    local options = {}
+    for _, w in ipairs(data.list) do
+        options[#options + 1] = {
+            title = w.label,
+            description = ('Durability %d%% · $%d (%s)'):format(w.durability, w.cost, data.account),
+            icon = w.icon or 'fa-solid fa-gun',
+            onSelect = function()
+                if equipped and equipped.slot == w.slot then holster() end
+                repairing = true
+                local done = exports.arca_core:Progress({
+                    label = ('Repairing %s'):format(w.label),
+                    duration = data.duration,
+                    canCancel = true,
+                    disable = { move = true, car = true, combat = true },
+                    anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 1 },
+                })
+                repairing = false
+                if done then Arca.Callback.Await('arca_inventory:bench:repair', index, w.slot, w.serial) end
+            end,
+        }
+    end
+    exports.arca_core:RegisterContext({ id = 'arca_inventory:bench', title = 'Weapon Bench', options = options })
+    exports.arca_core:ShowContext('arca_inventory:bench')
+end
+
+local function registerBenches()
+    for index, bench in ipairs(InvConfig.Weapons.RepairBenches or {}) do
+        exports.arca_target:addSphereZone({
+            name = 'arca_inventory:bench:' .. index,
+            coords = bench.coords,
+            radius = 1.2,
+            options = {
+                { name = 'arca_inventory:bench', label = bench.label or 'Repair weapons', icon = 'fa-solid fa-screwdriver-wrench', distance = 2.0,
+                  onSelect = function() useBench(index) end },
+            },
+        })
+    end
+end
+
+if GetResourceState('arca_target') == 'started' then registerBenches() end
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource == 'arca_target' then registerBenches() end
+end)
+
+-- without arca_target: walk up and press E
+CreateThread(function()
+    local shown = false
+    while true do
+        local sleep = 750
+        if GetResourceState('arca_target') ~= 'started' then
+            local coords = GetEntityCoords(PlayerPedId())
+            local near
+            for index, bench in ipairs(InvConfig.Weapons.RepairBenches or {}) do
+                if #(coords - bench.coords) < 1.8 then near = index break end
+            end
+            if near then
+                sleep = 0
+                if not shown then
+                    exports.arca_core:ShowTextUI('[E] Repair weapons', { icon = 'fa-solid fa-screwdriver-wrench' })
+                    shown = true
+                end
+                if IsControlJustPressed(0, 38) then useBench(near) end
+            elseif shown then
+                exports.arca_core:HideTextUI()
+                shown = false
             end
         end
         Wait(sleep)

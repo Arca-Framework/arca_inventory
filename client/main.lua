@@ -10,7 +10,7 @@ local function itemsForNui()
     local list = {}
     for name, d in pairs(InvItems) do
         local rarity = InvConfig.Rarity.Enabled and (d.rarity or InvConfig.Rarity.Default) or nil
-        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity, weapon = d.weapon ~= nil, attachment = d.attachment ~= nil }
+        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity, weapon = d.weapon ~= nil and not d.throwable, throwable = d.throwable, attachment = d.attachment ~= nil }
     end
     return list
 end

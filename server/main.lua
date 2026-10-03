@@ -557,6 +557,16 @@ Arca.Callback.Register('arca_inventory:checkout', function(src, data)
 
     local player = exports.arca_core:GetPlayer(src)
     if not player then return false, 'Player not found' end
+
+    local shop = ShopsById[tostring(data.shop)] or {}
+    if not shop.ignoreLicence then
+        for _, line in ipairs(lines) do
+            local licence = def(line.name).licence
+            if licence and not HasLicence(src, licence) then
+                return false, ('You need a %s to buy a %s'):format(LicenceLabel(licence), def(line.name).label)
+            end
+        end
+    end
     if (player.PlayerData.money[method] or 0) < total then
         return false, ('Not enough %s ($%d needed)'):format(method, total)
     end
@@ -566,7 +576,15 @@ Arca.Callback.Register('arca_inventory:checkout', function(src, data)
 
     local stockChanged = false
     for _, line in ipairs(lines) do
-        addItem(own, line.name, line.count)
+        local d = def(line.name)
+        if shop.register and d.weapon and not d.throwable and not d.noSerial then
+            for _ = 1, line.count do
+                local meta = RegisteredWeaponMeta(src, player, d)
+                if addItem(own, line.name, 1, meta) then RegisterWeapon(player, d, meta) end
+            end
+        else
+            addItem(own, line.name, line.count)
+        end
         if not line.entry.metadata.unlimited then
             line.entry.count = line.entry.count - line.count
             if line.entry.count <= 0 then shopInv.items[line.slot] = nil end
@@ -661,7 +679,7 @@ RegisterNetEvent('arca_inventory:use', function(slot)
     if not item then return end
     local d0 = def(item.name)
     -- weapons, ammo and attachments are handled by server/weapons.lua
-    if d0.weapon or d0.ammoType or d0.attachment then
+    if d0.weapon or d0.ammoType or d0.attachment or d0.repair then
         return WeaponUse(src, inv, tonumber(slot), item, d0)
     end
     local fn = exports.arca_core:CanUseItem(item.name)
@@ -852,7 +870,7 @@ end)
 -- internal access for server/usable.lua
 InvInternal = {
     resolve = resolve, removeItem = removeItem, addItem = addItem, countItem = countItem,
-    canCarry = canCarry, changed = changed, def = def,
+    canCarry = canCarry, changed = changed, def = def, inGroups = inGroups,
     playerInv = function(src) return Inventories[PlayerInv[src]] end,
 }
 

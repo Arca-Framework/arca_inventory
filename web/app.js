@@ -318,7 +318,7 @@ function moveTooltip(e) {
     const item = slotEl && itemAt(slotEl.dataset.inv, Number(slotEl.dataset.slot));
     if (!item) return hideTooltip();
     const d = defs[item.name] || {};
-    const LABELS = { serial: 'Serial', ammo: 'Ammo', durability: 'Durability' };
+    const LABELS = { serial: 'Serial', ammo: 'Ammo', durability: 'Durability', registered: 'Registered to', holder: 'Holder' };
     let meta = Object.entries(item.metadata || {})
         .filter(([, v]) => typeof v !== 'object')
         .map(([k, v]) => `<div class="meta"><span>${esc(LABELS[k] || k)}</span><b>${esc(k === 'durability' ? `${Math.round(v)}%` : v)}</b></div>`).join('');
@@ -592,6 +592,7 @@ document.addEventListener('contextmenu', (e) => {
         `<div class="wm-stats">` +
             (meta.ammo !== undefined ? `<div><span>Ammo</span><b>${esc(meta.ammo)}</b></div>` : '') +
             `<div><span>Durability</span><b>${Math.round(meta.durability ?? 100)}%</b></div>` +
+            `<div><span>Registered</span><b>${esc(meta.registered || (meta.serial ? 'Unregistered' : '-'))}</b></div>` +
         `</div>` +
         `<div class="wm-title">Attachments</div>` +
         (comps.length

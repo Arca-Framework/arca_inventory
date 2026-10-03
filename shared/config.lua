@@ -70,6 +70,59 @@ InvConfig = {
             },
             -- groups = { mechanic = 0 },   -- optional: only these jobs/gangs (min grade)
         },
+        {
+            -- weapons with licence = '...' (shared/items.lua) need that licence to buy.
+            -- register = true writes every weapon sold here to the registry under the buyer's name.
+            id = 'ammunation', label = 'Ammu-Nation',
+            ped = 's_m_y_ammucity_01',
+            blip = { sprite = 110, color = 1 },
+            register = true,
+            locations = {
+                vector4(22.09, -1105.36, 29.80, 157.0),
+                vector4(810.25, -2159.04, 29.62, 0.0),
+                vector4(1692.39, 3760.98, 34.71, 228.0),
+                vector4(-330.24, 6083.88, 31.45, 225.0),
+                vector4(252.63, -50.0, 69.94, 70.0),
+                vector4(-1118.59, 2699.93, 18.55, 222.0),
+                vector4(841.92, -1035.32, 28.19, 0.0),
+                vector4(-3173.31, 1088.85, 20.84, 245.0),
+            },
+            items = {
+                { name = 'weapon_knife', price = 150 },
+                { name = 'weapon_bat', price = 100 },
+                { name = 'weapon_flashlight', price = 80 },
+                { name = 'weapon_pistol', price = 2500 },
+                { name = 'weapon_pumpshotgun', price = 6000, stock = 10 },
+                { name = 'pistol_ammo', price = 3 },
+                { name = 'shotgun_ammo', price = 6 },
+                { name = 'weapon_flare', price = 50 },
+                { name = 'weapon_flashlight_attachment', price = 400 },
+                { name = 'weapon_repairkit', price = 750 },
+            },
+        },
+        {
+            -- job-only shop: groups limits who can open it, ignoreLicence skips licence checks
+            id = 'police_armory', label = 'Police Armory',
+            ped = 's_m_y_cop_01',
+            groups = { police = 0 },
+            ignoreLicence = true,
+            register = true,
+            locations = {
+                vector4(482.47, -995.13, 30.69, 90.0),
+            },
+            items = {
+                { name = 'weapon_stungun', price = 0 },
+                { name = 'weapon_flashlight', price = 0 },
+                { name = 'weapon_combatpistol', price = 0 },
+                { name = 'weapon_carbinerifle', price = 0 },
+                { name = 'weapon_smokegrenade', price = 0 },
+                { name = 'weapon_bzgas', price = 0 },
+                { name = 'pistol_ammo', price = 0 },
+                { name = 'rifle_ammo', price = 0 },
+                { name = 'weapon_repairkit', price = 0 },
+                { name = 'armor', price = 0 },
+            },
+        },
     },
 
     -- Dumpsters: third-eye a dumpster to search it. Found loot goes into the dumpster,
@@ -115,4 +168,31 @@ InvConfig.Weapons = {
     DisableWeaponWheel = true,
     -- remove any weapon a player holds that didn't come from their inventory
     StripUnknownWeapons = true,
+
+    -- Licences live in the player's metadata (metadata.licences[name] = true), like qb-core.
+    -- Jobs below may grant / revoke them with /givelicence and /revokelicence (admins always can).
+    Licences = {
+        Types = { weapon = 'Weapon Licence', hunting = 'Hunting Licence' },
+        Issuers = { police = 2 },               -- job = minimum grade
+        CardItem = 'weapon_licence',            -- also hand them this item when granted (false = off)
+    },
+
+    -- Weapon registry: weapons bought from shops with register = true are saved with the
+    -- buyer's name. Police can look a serial up with /checkserial <serial>.
+    Registry = {
+        Enabled = true,
+        Lookup = { police = 0 },                -- jobs allowed to use /checkserial
+    },
+
+    -- Repair benches: third-eye (or [E]) the bench, pick a weapon, pay and it's back to 100%
+    RepairBenches = {
+        {
+            label = 'Weapon Bench',
+            coords = vector3(16.72, -1110.35, 29.80),   -- Ammu-Nation, Pillbox Hill
+            price = 5,                  -- $ per durability point restored
+            account = 'cash',
+            duration = 6000,            -- ms
+            -- groups = { police = 0 },
+        },
+    },
 }

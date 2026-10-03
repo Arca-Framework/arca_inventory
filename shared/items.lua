@@ -28,15 +28,29 @@ InvItems = {
     shotgun_ammo = { label = 'Shotgun Shells', rarity = 'uncommon', weight = 20, stack = true, ammoType = 'shotgun', icon = 'fa-solid fa-grip-lines-vertical', description = 'Shotgun shells.' },
 
     -- Weapons: weapon = GTA weapon name, ammo = ammo item (none for melee), maxAmmo / wear optional
-    weapon_pistol = { label = 'Pistol', rarity = 'uncommon', weight = 1000, weapon = 'WEAPON_PISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', description = 'A standard 9mm pistol.' },
-    weapon_combatpistol = { label = 'Combat Pistol', rarity = 'rare', weight = 1100, weapon = 'WEAPON_COMBATPISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', description = 'Reliable sidearm.' },
+    --   licence = 'weapon' -> shops only sell it to players holding that licence
+    weapon_pistol = { label = 'Pistol', rarity = 'uncommon', weight = 1000, weapon = 'WEAPON_PISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', licence = 'weapon', description = 'A standard 9mm pistol.' },
+    weapon_combatpistol = { label = 'Combat Pistol', rarity = 'rare', weight = 1100, weapon = 'WEAPON_COMBATPISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', licence = 'weapon', description = 'Reliable sidearm.' },
     weapon_stungun = { label = 'Taser', rarity = 'uncommon', weight = 700, weapon = 'WEAPON_STUNGUN', icon = 'fa-solid fa-bolt', description = 'Non-lethal.', noSerial = true },
-    weapon_smg = { label = 'SMG', rarity = 'rare', weight = 2500, weapon = 'WEAPON_SMG', ammo = 'smg_ammo', icon = 'fa-solid fa-gun', description = 'Compact sub-machine gun.' },
-    weapon_carbinerifle = { label = 'Carbine Rifle', rarity = 'legendary', weight = 3500, weapon = 'WEAPON_CARBINERIFLE', ammo = 'rifle_ammo', icon = 'fa-solid fa-gun', description = 'Standard issue rifle.', wear = 0.03 },
-    weapon_pumpshotgun = { label = 'Pump Shotgun', rarity = 'rare', weight = 3200, weapon = 'WEAPON_PUMPSHOTGUN', ammo = 'shotgun_ammo', maxAmmo = 60, icon = 'fa-solid fa-gun', description = 'Close range stopping power.' },
+    weapon_smg = { label = 'SMG', rarity = 'rare', weight = 2500, weapon = 'WEAPON_SMG', ammo = 'smg_ammo', icon = 'fa-solid fa-gun', licence = 'weapon', description = 'Compact sub-machine gun.' },
+    weapon_carbinerifle = { label = 'Carbine Rifle', rarity = 'legendary', weight = 3500, weapon = 'WEAPON_CARBINERIFLE', ammo = 'rifle_ammo', icon = 'fa-solid fa-gun', licence = 'weapon', description = 'Standard issue rifle.', wear = 0.03 },
+    weapon_pumpshotgun = { label = 'Pump Shotgun', rarity = 'rare', weight = 3200, weapon = 'WEAPON_PUMPSHOTGUN', ammo = 'shotgun_ammo', maxAmmo = 60, icon = 'fa-solid fa-gun', licence = 'weapon', description = 'Close range stopping power.' },
     weapon_knife = { label = 'Knife', rarity = 'common', weight = 300, weapon = 'WEAPON_KNIFE', icon = 'fa-solid fa-utensils', description = 'Sharp.', noSerial = true },
     weapon_bat = { label = 'Baseball Bat', rarity = 'common', weight = 1000, weapon = 'WEAPON_BAT', icon = 'fa-solid fa-baseball-bat-ball', description = 'Home run.', noSerial = true },
     weapon_flashlight = { label = 'Flashlight', rarity = 'common', weight = 400, weapon = 'WEAPON_FLASHLIGHT', icon = 'fa-solid fa-lightbulb', description = 'Lights the way.', noSerial = true },
+
+    -- Throwables: stack like normal items; equip and throw one at a time, each throw uses one item
+    weapon_grenade = { label = 'Grenade', rarity = 'legendary', weight = 400, stack = true, throwable = true, weapon = 'WEAPON_GRENADE', icon = 'fa-solid fa-bomb', description = 'Pull the pin and throw.' },
+    weapon_smokegrenade = { label = 'Smoke Grenade', rarity = 'rare', weight = 400, stack = true, throwable = true, weapon = 'WEAPON_SMOKEGRENADE', icon = 'fa-solid fa-smog', description = 'Covers an area in smoke.' },
+    weapon_bzgas = { label = 'Tear Gas', rarity = 'rare', weight = 400, stack = true, throwable = true, weapon = 'WEAPON_BZGAS', icon = 'fa-solid fa-head-side-cough', description = 'Clears a room.' },
+    weapon_molotov = { label = 'Molotov', rarity = 'rare', weight = 600, stack = true, throwable = true, weapon = 'WEAPON_MOLOTOV', icon = 'fa-solid fa-fire', description = 'A bottle of trouble.' },
+    weapon_flare = { label = 'Flare', rarity = 'common', weight = 200, stack = true, throwable = true, weapon = 'WEAPON_FLARE', icon = 'fa-solid fa-fire-flame-simple', description = 'Lights up the night.' },
+
+    -- Weapon repair: use one to repair the weapon you have equipped by `repair` durability points
+    weapon_repairkit = { label = 'Weapon Repair Kit', rarity = 'rare', weight = 1500, stack = true, close = true, repair = 35, icon = 'fa-solid fa-toolbox', description = 'Cleans and fixes up the weapon in your hands.' },
+
+    -- Licences are player metadata (see InvConfig.Weapons.Licences), the card is just for show
+    weapon_licence = { label = 'Weapon Licence', rarity = 'rare', weight = 10, stack = false, icon = 'fa-solid fa-id-badge', description = 'Permit to carry firearms.' },
 
     -- Attachments: attachment = { [weapon] = component }
     suppressor = { label = 'Suppressor', rarity = 'rare', weight = 200, stack = true, icon = 'fa-solid fa-volume-xmark', description = 'Quiets your shots.', attachment = {
