@@ -200,7 +200,9 @@ CreateThread(function()
     while true do
         local sleep = 500
         if LocalPlayer.state.isLoggedIn then
-            if cfg.DisableWeaponWheel then
+            -- only needed while a weapon is out: with nothing equipped there's nothing to switch to,
+            -- and the strip check below catches anything that slips through
+            if cfg.DisableWeaponWheel and equipped then
                 sleep = 0
                 DisableControlAction(0, 37, true)   -- weapon wheel
                 HudWeaponWheelIgnoreSelection()
