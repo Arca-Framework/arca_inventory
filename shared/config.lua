@@ -105,3 +105,14 @@ InvConfig.Rarity = {
         legendary = '#ffb547',
     },
 }
+
+-- Weapons are items (see shared/items.lua). Ammo lives on the weapon; use an ammo item
+-- (or press the reload key) to load ammo from your inventory into the equipped weapon.
+InvConfig.Weapons = {
+    ReloadKey = 'R',
+    MaxAmmo = 250,          -- default ammo a weapon can hold (items can set maxAmmo)
+    Wear = 0.05,            -- default durability lost per shot (items can set wear)
+    DisableWeaponWheel = true,
+    -- remove any weapon a player holds that didn't come from their inventory
+    StripUnknownWeapons = true,
+}

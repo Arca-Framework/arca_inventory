@@ -57,17 +57,27 @@ function itemHtml(item) {
     const icon = esc(d.icon || 'fa-solid fa-box').replace(/[^\w\s-]/g, '');
     const price = item.metadata && item.metadata.price;
     const stock = price !== undefined && !item.metadata.unlimited ? `<span class="stock">${item.count} left</span>` : '';
-    const top = price !== undefined
-        ? `<span class="price">$${esc(price)}</span>`
-        : item.name === 'cash'
-            ? `<span class="count">$${Number(item.count).toLocaleString('en-US')}</span>`
-            : `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
+    const meta = item.metadata || {};
+    let top;
+    if (price !== undefined) top = `<span class="price">$${esc(price)}</span>`;
+    else if (item.name === 'cash') top = `<span class="count">$${Number(item.count).toLocaleString('en-US')}</span>`;
+    else if (d.weapon && meta.ammo !== undefined) top = `<span class="count ammo"><i class="fa-solid fa-circle-dot"></i>${esc(meta.ammo)}</span>`;
+    else top = `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
+
+    // weapons: durability bar along the bottom
+    let dura = '';
+    if (d.weapon && meta.durability !== undefined && price === undefined) {
+        const v = Math.max(0, Math.min(100, Number(meta.durability)));
+        dura = `<span class="dura"><i class="${v <= 20 ? 'low' : v <= 50 ? 'mid' : ''}" style="width:${v}%"></i></span>`;
+    }
+
     const rarity = rarityOf(d);
     const rarityAttr = rarity ? ` data-rarity="${esc(rarity)}" style="${esc(rarityVars(rarityCfg.Colors[rarity]))}"` : '';
-    return `<div class="item${rarity ? ' rarity' : ''}" data-name="${esc(item.name)}"${rarityAttr}>
+    return `<div class="item${rarity ? ' rarity' : ''}${d.weapon ? ' weapon' : ''}" data-name="${esc(item.name)}"${rarityAttr}>
         ${top}${stock}
         <span class="img"><img src="images/${esc(item.name)}.png" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'${icon}'}))"></span>
         <span class="label">${esc(d.label)}</span>
+        ${dura}
     </div>`;
 }
 
@@ -308,9 +318,15 @@ function moveTooltip(e) {
     const item = slotEl && itemAt(slotEl.dataset.inv, Number(slotEl.dataset.slot));
     if (!item) return hideTooltip();
     const d = defs[item.name] || {};
-    const meta = Object.entries(item.metadata || {})
+    const LABELS = { serial: 'Serial', ammo: 'Ammo', durability: 'Durability' };
+    let meta = Object.entries(item.metadata || {})
         .filter(([, v]) => typeof v !== 'object')
-        .map(([k, v]) => `<div class="meta"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+        .map(([k, v]) => `<div class="meta"><span>${esc(LABELS[k] || k)}</span><b>${esc(k === 'durability' ? `${Math.round(v)}%` : v)}</b></div>`).join('');
+    const comps = (item.metadata && item.metadata.components) || [];
+    if (comps.length) {
+        meta += `<div class="meta"><span>Attachments</span><b>${comps.map((c) => esc((defs[c] || {}).label || c)).join(', ')}</b></div>`;
+    }
+    if (d.weapon && slotEl.dataset.inv === order[0]) meta += `<p class="hint-small">Right-click for attachments</p>`;
     const rarity = rarityOf(d);
     tooltip.innerHTML = `<strong>${esc(d.label || item.name)}</strong>` +
         (rarity ? `<span class="tag" style="--r:${esc(rarityCfg.Colors[rarity])}">${esc(rarity)}</span>` : '') +
@@ -535,6 +551,8 @@ if (location.search.includes('preview')) {
         copper: { label: 'Copper', weight: 200, stack: true, icon: 'fa-solid fa-cubes' },
         phone: { label: 'Phone', weight: 200, icon: 'fa-solid fa-mobile-screen' },
         pistol_ammo: { label: 'Pistol Ammo', weight: 200, stack: true, icon: 'fa-solid fa-grip-lines-vertical' },
+        weapon_pistol: { label: 'Pistol', weight: 1000, weapon: true, icon: 'fa-solid fa-gun', rarity: 'uncommon' },
+        suppressor: { label: 'Suppressor', weight: 200, stack: true, attachment: true, icon: 'fa-solid fa-volume-xmark', rarity: 'rare' },
     };
     Object.assign(items.water, { rarity: 'common' }); Object.assign(items.medikit, { rarity: 'rare' }); Object.assign(items.armor, { rarity: 'legendary' }); Object.assign(items.phone, { rarity: 'uncommon' }); Object.assign(items.backpack, { rarity: 'rare' }); Object.assign(items.pistol_ammo, { rarity: 'uncommon' });
     window.postMessage({ action: 'open', data: {
@@ -544,6 +562,7 @@ if (location.search.includes('preview')) {
             { slot: 1, name: 'water', count: 3 }, { slot: 2, name: 'bread', count: 1 }, { slot: 3, name: 'armor', count: 1 },
             { slot: 4, name: 'backpack', count: 1 }, { slot: 6, name: 'medikit', count: 1 }, { slot: 7, name: 'copper', count: 12 },
             { slot: 8, name: 'phone', count: 1 }, { slot: 9, name: 'pistol_ammo', count: 3 },
+            { slot: 5, name: 'weapon_pistol', count: 1, metadata: { serial: 'ARC481203', ammo: 36, durability: 62, components: ['suppressor'] } },
         ] },
         others: [
 
@@ -552,3 +571,47 @@ if (location.search.includes('preview')) {
     } });
     setTimeout(() => { addToCart('shop:247', 1, 2); addToCart('shop:247', 3, 1); }, 50);
 }
+
+/* ---------- weapon attachments (right-click a weapon in your inventory) ---------- */
+const weaponMenu = $('#weapon-menu');
+
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    weaponMenu.classList.add('hidden');
+    const slotEl = e.target.closest('.window .slot');
+    if (!slotEl || slotEl.dataset.inv !== order[0]) return;
+    const slot = Number(slotEl.dataset.slot);
+    const item = itemAt(order[0], slot);
+    const d = item && defs[item.name];
+    if (!d || !d.weapon) return;
+
+    const meta = item.metadata || {};
+    const comps = meta.components || [];
+    weaponMenu.innerHTML =
+        `<div class="wm-head"><strong>${esc(d.label)}</strong>${meta.serial ? `<span>${esc(meta.serial)}</span>` : ''}</div>` +
+        `<div class="wm-stats">` +
+            (meta.ammo !== undefined ? `<div><span>Ammo</span><b>${esc(meta.ammo)}</b></div>` : '') +
+            `<div><span>Durability</span><b>${Math.round(meta.durability ?? 100)}%</b></div>` +
+        `</div>` +
+        `<div class="wm-title">Attachments</div>` +
+        (comps.length
+            ? comps.map((c) => `<div class="wm-row"><span>${esc((defs[c] || {}).label || c)}</span><button data-detach="${esc(c)}">Remove</button></div>`).join('')
+            : `<div class="wm-empty">None. Equip the weapon and use an attachment item.</div>`);
+    weaponMenu.classList.remove('hidden');
+    hideTooltip();
+    const r = weaponMenu.getBoundingClientRect();
+    weaponMenu.style.left = `${Math.min(window.innerWidth - r.width - 10, e.clientX)}px`;
+    weaponMenu.style.top = `${Math.min(window.innerHeight - r.height - 10, e.clientY)}px`;
+    weaponMenu.dataset.slot = slot;
+});
+
+weaponMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-detach]');
+    if (!btn) return;
+    post('detach', { slot: Number(weaponMenu.dataset.slot), attachment: btn.dataset.detach });
+    weaponMenu.classList.add('hidden');
+});
+
+document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#weapon-menu')) weaponMenu.classList.add('hidden');
+});

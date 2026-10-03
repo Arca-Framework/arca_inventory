@@ -13,12 +13,16 @@ shared_scripts {
     'shared/items.lua',
 }
 
-client_script 'client/main.lua'
+client_scripts {
+    'client/main.lua',
+    'client/weapons.lua',
+}
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
     'server/usable.lua',
+    'server/weapons.lua',
 }
 
 ui_page 'web/index.html'

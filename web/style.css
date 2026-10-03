@@ -148,3 +148,30 @@ kbd { padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, .1);
 .item[data-rarity="legendary"] { box-shadow: inset 0 -2px 0 var(--r), inset 0 0 0 1px var(--r40), inset 0 0 18px var(--r25); animation: legendary 2.4s ease-in-out infinite; }
 @keyframes legendary { 50% { box-shadow: inset 0 -2px 0 var(--r), inset 0 0 0 1px var(--r), inset 0 0 26px var(--r40); } }
 #tooltip .tag { display: inline-block; margin: 0 0 6px; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #0b0e11; background: var(--r); }
+
+/* ---------- weapons ---------- */
+.item .count.ammo { display: flex; align-items: center; gap: 3px; color: #ffd27a; }
+.item .count.ammo i { font-size: 8px; opacity: .8; }
+.item .dura { position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.item .dura i { display: block; height: 100%; background: var(--accent); }
+.item .dura i.mid { background: #ffb547; }
+.item .dura i.low { background: #ff5468; }
+.item.weapon .label { margin-bottom: 3px; }
+#tooltip .hint-small { margin: 6px 0 0; font-size: 11px; color: var(--muted); font-style: italic; }
+
+#weapon-menu {
+    position: fixed; z-index: 45; width: 250px; padding: 12px; border-radius: 10px;
+    background: #0b0e11; border: 1px solid var(--border); box-shadow: 0 14px 40px rgba(0, 0, 0, .6); font-size: 13px;
+}
+.wm-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.wm-head strong { font-size: 15px; }
+.wm-head span { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+.wm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.wm-stats div { padding: 6px 8px; border-radius: 6px; background: var(--slot); }
+.wm-stats span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.wm-stats b { font-size: 14px; }
+.wm-title { font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.wm-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 6px; background: var(--slot); margin-bottom: 4px; }
+.wm-row button { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 5px; background: rgba(255, 84, 104, .14); color: #ff5468; }
+.wm-row button:hover { background: #ff5468; color: #fff; }
+.wm-empty { color: var(--muted); font-size: 12px; }

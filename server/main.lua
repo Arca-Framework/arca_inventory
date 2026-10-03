@@ -208,7 +208,11 @@ local function addItem(inv, name, count, metadata, slot)
         if free < count then return false end
         for _ = 1, count do
             local s = (slot and not inv.items[slot]) and slot or freeSlot(inv)
-            inv.items[s] = { name = name, count = 1, metadata = metadata }
+            -- each copy gets its own metadata (weapons get their own serial)
+            local meta = {}
+            for k, v in pairs(metadata) do meta[k] = v end
+            if d.weapon then WeaponDefaults(d, meta) end
+            inv.items[s] = { name = name, count = 1, metadata = meta }
             slot = nil
         end
     end
@@ -655,6 +659,11 @@ RegisterNetEvent('arca_inventory:use', function(slot)
     local inv = Inventories[PlayerInv[src]]
     local item = inv and inv.items[tonumber(slot)]
     if not item then return end
+    local d0 = def(item.name)
+    -- weapons, ammo and attachments are handled by server/weapons.lua
+    if d0.weapon or d0.ammoType or d0.attachment then
+        return WeaponUse(src, inv, tonumber(slot), item, d0)
+    end
     local fn = exports.arca_core:CanUseItem(item.name)
     if not fn then
         return TriggerClientEvent('arca_core:notify', src, ('%s can\'t be used'):format(def(item.name).label), 'error')
@@ -841,7 +850,11 @@ AddEventHandler('onResourceStop', function(resource)
 end)
 
 -- internal access for server/usable.lua
-InvInternal = { resolve = resolve, removeItem = removeItem, addItem = addItem }
+InvInternal = {
+    resolve = resolve, removeItem = removeItem, addItem = addItem, countItem = countItem,
+    canCarry = canCarry, changed = changed, def = def,
+    playerInv = function(src) return Inventories[PlayerInv[src]] end,
+}
 
 ---------------------------------------------------------------------
 -- Admin commands

@@ -10,7 +10,7 @@ local function itemsForNui()
     local list = {}
     for name, d in pairs(InvItems) do
         local rarity = InvConfig.Rarity.Enabled and (d.rarity or InvConfig.Rarity.Default) or nil
-        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity }
+        list[name] = { label = d.label, weight = d.weight, stack = d.stack, icon = d.icon, description = d.description, rarity = rarity, weapon = d.weapon ~= nil, attachment = d.attachment ~= nil }
     end
     return list
 end
@@ -215,6 +215,11 @@ end)
 RegisterNUICallback('checkout', function(data, cb)
     local ok, err = Arca.Callback.Await('arca_inventory:checkout', data)
     cb({ ok = ok, error = err })
+end)
+
+RegisterNUICallback('detach', function(data, cb)
+    cb(1)
+    TriggerServerEvent('arca_inventory:weapon:detach', data.slot, data.attachment)
 end)
 
 RegisterNUICallback('use', function(data, cb)

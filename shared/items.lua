@@ -21,5 +21,37 @@ InvItems = {
     id_card = { label = 'ID Card', rarity = 'uncommon', weight = 10, stack = false, icon = 'fa-solid fa-id-card', description = 'Citizen identification.' },
     backpack = { label = 'Backpack', rarity = 'rare', weight = 1000, stack = false, icon = 'fa-solid fa-suitcase', description = 'Carry more things.' },
     copper = { label = 'Copper', rarity = 'common', weight = 200, stack = true, icon = 'fa-solid fa-cubes', description = 'Scrap metal.' },
-    pistol_ammo = { label = 'Pistol Ammo', rarity = 'uncommon', weight = 200, stack = true, icon = 'fa-solid fa-grip-lines-vertical', description = 'Box of pistol rounds.' },
+    -- Ammo: ammoType marks it as ammo; weapons point to it with ammo = '<item>'
+    pistol_ammo = { label = 'Pistol Ammo', rarity = 'uncommon', weight = 10, stack = true, ammoType = 'pistol', icon = 'fa-solid fa-grip-lines-vertical', description = 'Pistol rounds.' },
+    smg_ammo = { label = 'SMG Ammo', rarity = 'uncommon', weight = 10, stack = true, ammoType = 'smg', icon = 'fa-solid fa-grip-lines-vertical', description = 'SMG rounds.' },
+    rifle_ammo = { label = 'Rifle Ammo', rarity = 'rare', weight = 15, stack = true, ammoType = 'rifle', icon = 'fa-solid fa-grip-lines-vertical', description = 'Rifle rounds.' },
+    shotgun_ammo = { label = 'Shotgun Shells', rarity = 'uncommon', weight = 20, stack = true, ammoType = 'shotgun', icon = 'fa-solid fa-grip-lines-vertical', description = 'Shotgun shells.' },
+
+    -- Weapons: weapon = GTA weapon name, ammo = ammo item (none for melee), maxAmmo / wear optional
+    weapon_pistol = { label = 'Pistol', rarity = 'uncommon', weight = 1000, weapon = 'WEAPON_PISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', description = 'A standard 9mm pistol.' },
+    weapon_combatpistol = { label = 'Combat Pistol', rarity = 'rare', weight = 1100, weapon = 'WEAPON_COMBATPISTOL', ammo = 'pistol_ammo', icon = 'fa-solid fa-gun', description = 'Reliable sidearm.' },
+    weapon_stungun = { label = 'Taser', rarity = 'uncommon', weight = 700, weapon = 'WEAPON_STUNGUN', icon = 'fa-solid fa-bolt', description = 'Non-lethal.', noSerial = true },
+    weapon_smg = { label = 'SMG', rarity = 'rare', weight = 2500, weapon = 'WEAPON_SMG', ammo = 'smg_ammo', icon = 'fa-solid fa-gun', description = 'Compact sub-machine gun.' },
+    weapon_carbinerifle = { label = 'Carbine Rifle', rarity = 'legendary', weight = 3500, weapon = 'WEAPON_CARBINERIFLE', ammo = 'rifle_ammo', icon = 'fa-solid fa-gun', description = 'Standard issue rifle.', wear = 0.03 },
+    weapon_pumpshotgun = { label = 'Pump Shotgun', rarity = 'rare', weight = 3200, weapon = 'WEAPON_PUMPSHOTGUN', ammo = 'shotgun_ammo', maxAmmo = 60, icon = 'fa-solid fa-gun', description = 'Close range stopping power.' },
+    weapon_knife = { label = 'Knife', rarity = 'common', weight = 300, weapon = 'WEAPON_KNIFE', icon = 'fa-solid fa-utensils', description = 'Sharp.', noSerial = true },
+    weapon_bat = { label = 'Baseball Bat', rarity = 'common', weight = 1000, weapon = 'WEAPON_BAT', icon = 'fa-solid fa-baseball-bat-ball', description = 'Home run.', noSerial = true },
+    weapon_flashlight = { label = 'Flashlight', rarity = 'common', weight = 400, weapon = 'WEAPON_FLASHLIGHT', icon = 'fa-solid fa-lightbulb', description = 'Lights the way.', noSerial = true },
+
+    -- Attachments: attachment = { [weapon] = component }
+    suppressor = { label = 'Suppressor', rarity = 'rare', weight = 200, stack = true, icon = 'fa-solid fa-volume-xmark', description = 'Quiets your shots.', attachment = {
+        WEAPON_PISTOL = 'COMPONENT_AT_PI_SUPP_02', WEAPON_COMBATPISTOL = 'COMPONENT_AT_PI_SUPP',
+        WEAPON_SMG = 'COMPONENT_AT_PI_SUPP', WEAPON_CARBINERIFLE = 'COMPONENT_AT_AR_SUPP', WEAPON_PUMPSHOTGUN = 'COMPONENT_AT_SR_SUPP',
+    } },
+    weapon_flashlight_attachment = { label = 'Tactical Light', rarity = 'uncommon', weight = 150, stack = true, icon = 'fa-solid fa-lightbulb', description = 'Mounted flashlight.', attachment = {
+        WEAPON_PISTOL = 'COMPONENT_AT_PI_FLSH', WEAPON_COMBATPISTOL = 'COMPONENT_AT_PI_FLSH',
+        WEAPON_SMG = 'COMPONENT_AT_AR_FLSH', WEAPON_CARBINERIFLE = 'COMPONENT_AT_AR_FLSH', WEAPON_PUMPSHOTGUN = 'COMPONENT_AT_AR_FLSH',
+    } },
+    extended_clip = { label = 'Extended Clip', rarity = 'rare', weight = 250, stack = true, icon = 'fa-solid fa-layer-group', description = 'More rounds per magazine.', attachment = {
+        WEAPON_PISTOL = 'COMPONENT_PISTOL_CLIP_02', WEAPON_COMBATPISTOL = 'COMPONENT_COMBATPISTOL_CLIP_02',
+        WEAPON_SMG = 'COMPONENT_SMG_CLIP_02', WEAPON_CARBINERIFLE = 'COMPONENT_CARBINERIFLE_CLIP_02',
+    } },
+    scope = { label = 'Scope', rarity = 'rare', weight = 300, stack = true, icon = 'fa-solid fa-crosshairs', description = 'See further.', attachment = {
+        WEAPON_SMG = 'COMPONENT_AT_SCOPE_MACRO_02', WEAPON_CARBINERIFLE = 'COMPONENT_AT_SCOPE_MEDIUM',
+    } },
 }
