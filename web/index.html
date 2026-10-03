@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="inventory" class="hidden">
+        <div id="windows"></div>
+        <div id="hint">
+            <span><kbd>Drag</kbd> items between containers</span>
+            <span><kbd>Drag</kbd> a header to move a container</span>
+            <span><kbd>Double-click</kbd> use</span>
+            <span><kbd>Shift</kbd>+drag move half</span>
+            <span><kbd>Esc</kbd> close</span>
+        </div>
+    </div>
+
+    <div id="tooltip" class="hidden"></div>
+    <div id="ghost" class="hidden"></div>
+
+    <!-- shown briefly when using hotbar keys -->
+    <div id="hotbar" class="hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
