@@ -170,6 +170,17 @@ local function hasTrunk(veh)
     return size.slots > 0
 end
 
+-- arca_target can report 'started' before its exports exist (resources start alphabetically),
+-- so keep trying for a while instead of checking once
+local function whenTargetReady(fn)
+    CreateThread(function()
+        for _ = 1, 60 do
+            if GetResourceState('arca_target') == 'started' and pcall(fn) then return end
+            Wait(500)
+        end
+    end)
+end
+
 local function registerTarget()
     exports.arca_target:addGlobalVehicle({
         {
@@ -192,7 +203,7 @@ local function registerTarget()
 end
 
 -- arca_target may start after us, or restart (which clears its options), so register whenever it starts
-if GetResourceState('arca_target') == 'started' then registerTarget() end
+whenTargetReady(registerTarget)
 AddEventHandler('onClientResourceStart', function(resource)
     if resource == 'arca_target' then registerTarget() end
 end)
@@ -384,11 +395,14 @@ local function spawnShopPed(shop, index, loc)
     SetBlockingOfNonTemporaryEvents(ped, true)
     TaskStartScenarioInPlace(ped, 'WORLD_HUMAN_STAND_IMPATIENT', 0, true)
 
+    -- pcall: arca_target may not be ready yet; the ped respawns (and registers) when it starts
     if hasTarget() then
-        exports.arca_target:addLocalEntity(ped, {
-            { name = 'arca_inventory:shop', label = ('Open %s'):format(shop.label), icon = 'fa-solid fa-store', distance = 3.0,
-              onSelect = function() openShop(shop.id, index) end },
-        })
+        pcall(function()
+            exports.arca_target:addLocalEntity(ped, {
+                { name = 'arca_inventory:shop', label = ('Open %s'):format(shop.label), icon = 'fa-solid fa-store', distance = 3.0,
+                  onSelect = function() openShop(shop.id, index) end },
+            })
+        end)
     end
     return ped
 end
@@ -465,7 +479,7 @@ local function registerDumpsters()
     })
 end
 
-if GetResourceState('arca_target') == 'started' then registerDumpsters() end
+whenTargetReady(registerDumpsters)
 AddEventHandler('onClientResourceStart', function(resource)
     if resource ~= 'arca_target' then return end
     registerDumpsters()

@@ -278,6 +278,17 @@ local function useBench(index)
     exports.arca_core:ShowContext('arca_inventory:bench')
 end
 
+-- arca_target can report 'started' before its exports exist (resources start alphabetically),
+-- so keep trying for a while instead of checking once
+local function whenTargetReady(fn)
+    CreateThread(function()
+        for _ = 1, 60 do
+            if GetResourceState('arca_target') == 'started' and pcall(fn) then return end
+            Wait(500)
+        end
+    end)
+end
+
 local function registerBenches()
     for index, bench in ipairs(InvConfig.Weapons.RepairBenches or {}) do
         exports.arca_target:addSphereZone({
@@ -292,7 +303,7 @@ local function registerBenches()
     end
 end
 
-if GetResourceState('arca_target') == 'started' then registerBenches() end
+whenTargetReady(registerBenches)
 AddEventHandler('onClientResourceStart', function(resource)
     if resource == 'arca_target' then registerBenches() end
 end)
