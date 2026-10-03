@@ -95,8 +95,18 @@ end
 ---------------------------------------------------------------------
 local function sync(inv)
     local data = payload(inv)
+    local other -- someone else's player inventory (admin view) is shown as a normal container
     for src in pairs(Viewers[inv.id] or {}) do
-        TriggerClientEvent('arca_inventory:client:update', src, data)
+        if inv.type == 'player' and PlayerInv[src] ~= inv.id then
+            if not other then
+                other = {}
+                for k, v in pairs(data) do other[k] = v end
+                other.type = 'otherplayer'
+            end
+            TriggerClientEvent('arca_inventory:client:update', src, other)
+        else
+            TriggerClientEvent('arca_inventory:client:update', src, data)
+        end
     end
 end
 
@@ -454,6 +464,13 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
         if loc and distance(src, loc) <= 4.0 and inGroups(src, shop.groups) then
             others[#others + 1] = Inventories['shop:' .. shop.id]
         end
+    elseif ctx.player then
+        -- admins looking into another player's pockets (arca_admin)
+        local target = tonumber(ctx.player)
+        local inv = target and target ~= src and Inventories[PlayerInv[target]]
+        if inv and exports.arca_core:HasPermission(src, 'admin') then
+            others[#others + 1] = inv
+        end
     elseif ctx.dumpster then
         local c = ctx.dumpster
         if type(c) == 'table' and tonumber(c.x) and distance(src, c) <= 3.5 then
@@ -472,7 +489,12 @@ Arca.Callback.Register('arca_inventory:open', function(src, ctx)
     local list = {}
     for _, inv in ipairs(others) do
         grantAccess(src, inv)
-        list[#list + 1] = payload(inv)
+        local p = payload(inv)
+        if inv.type == 'player' then
+            p.type = 'otherplayer'
+            p.label = ('%s · ID %s'):format(GetPlayerName(tostring(ctx.player)) or 'Player', ctx.player)
+        end
+        list[#list + 1] = p
     end
     if onFoot and not drop then
         list[#list + 1] = { id = 'newdrop', type = 'drop', label = 'Ground', slots = InvConfig.Drop.slots, maxWeight = InvConfig.Drop.weight, weight = 0, items = {} }
@@ -821,6 +843,11 @@ exports('RegisterStash', function(id, data)
 end)
 
 exports('GetItems', function() return InvItems end)
+
+---Opens another player's inventory next to the admin's own (permission checked on open)
+exports('OpenPlayerInventory', function(src, target)
+    TriggerClientEvent('arca_inventory:client:openPlayer', src, target)
+end)
 
 ---------------------------------------------------------------------
 -- Startup / saving

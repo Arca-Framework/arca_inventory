@@ -53,7 +53,7 @@ local function openInventory(ctx)
     if IsEntityDead(ped) then return end
 
     ctx = ctx or {}
-    if not (ctx.stash or ctx.shop or ctx.dumpster) then
+    if not (ctx.stash or ctx.shop or ctx.dumpster or ctx.player) then
         if IsPedInAnyVehicle(ped, false) then
             ctx.glovebox = true
         else
@@ -160,6 +160,11 @@ RegisterNetEvent('arca_inventory:client:update', function(data)
 end)
 
 RegisterNetEvent('arca_inventory:client:forceClose', closeInventory)
+
+-- arca_admin: open someone else's inventory next to ours
+RegisterNetEvent('arca_inventory:client:openPlayer', function(target)
+    openInventory({ player = target })
+end)
 
 RegisterNetEvent('arca_inventory:client:drops', function(list)
     drops = list
