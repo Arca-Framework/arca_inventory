@@ -14,6 +14,8 @@ let defs = {};          // item definitions
 let inventories = {};   // id -> payload
 let order = [];         // window ids, player first
 let selected = null;    // { inv, slot }
+let payment = ['cash', 'bank'];
+let cart = { shop: null, lines: {} }; // lines[slot] = count
 
 /* ---------- layout (saved per container type in this player's browser) ---------- */
 function loadLayout() {
@@ -57,7 +59,7 @@ function itemHtml(item) {
 function headHtml(inv) {
     if (inv.type === 'shop') {
         return `<span class="w-icon"><i class="fa-solid fa-store"></i></span>
-            <span class="w-weight">Drag an item into your inventory to buy</span>
+            <span class="w-weight">Click or drag items into your cart</span>
             <span class="w-title">${esc(inv.label)}</span>`;
     }
     const pct = inv.maxWeight ? Math.min(100, (inv.weight / inv.maxWeight) * 100) : 0;
@@ -110,26 +112,39 @@ function renderWindow(id, index) {
 
 // saved positions first; anything without one is stacked down the right-hand column
 function placeWindows(all = false) {
-    let nextY = Math.round(window.innerHeight * 0.12);
+    const top = Math.round(window.innerHeight * 0.12);
+    let colX = Math.round(window.innerWidth * 0.55);
+    let colW = 0;
+    let nextY = top;
     document.querySelectorAll('.window').forEach((win) => {
         const saved = layout[win.dataset.type];
         const auto = !saved && win.dataset.type !== 'player';
-        const height = win.getBoundingClientRect().height;
+        const rect = win.getBoundingClientRect();
+        if (auto && nextY > top && nextY + rect.height > window.innerHeight - 40) {
+            // column is full: start a new one to the right
+            colX += colW + 14;
+            colW = 0;
+            nextY = top;
+        }
         if (all || win.dataset.placed !== undefined) {
-            const pos = saved || (auto ? { x: Math.round(window.innerWidth * 0.55), y: nextY } : defaultPosition('player', 0));
+            const pos = saved || (auto ? { x: colX, y: nextY } : defaultPosition('player', 0));
             const p = clamp(win, pos.x, pos.y);
             win.style.left = `${p.x}px`;
             win.style.top = `${p.y}px`;
             delete win.dataset.placed;
         }
-        if (auto) nextY = win.offsetTop + height + 14;
+        if (auto) {
+            nextY = win.offsetTop + rect.height + 14;
+            colW = Math.max(colW, rect.width);
+        }
     });
 }
 
 function renderAll() {
     // remove windows that are gone
-    document.querySelectorAll('.window').forEach((w) => { if (!inventories[w.dataset.inv]) w.remove(); });
+    document.querySelectorAll('.window').forEach((w) => { if (w.dataset.type !== 'cart' && !inventories[w.dataset.inv]) w.remove(); });
     order.forEach((id, i) => renderWindow(id, i));
+    renderCart();
     placeWindows();
 }
 
@@ -224,6 +239,16 @@ document.addEventListener('mouseup', (e) => {
     $('#ghost').classList.add('hidden');
     d.el.classList.remove('dragging');
 
+    const fromShop = inventories[d.inv]?.type === 'shop';
+    if (fromShop) {
+        // shop items go into the cart: click, or drag onto the cart / your inventory
+        const dropWin = d.active ? document.elementFromPoint(e.clientX, e.clientY)?.closest('.window') : null;
+        if (!d.active || (dropWin && (dropWin.dataset.type === 'cart' || dropWin.dataset.type === 'player'))) {
+            addToCart(d.inv, d.slot, Math.max(1, Number($('#amount')?.value) || 0));
+        }
+        return;
+    }
+
     if (!d.active) {
         // plain click: select
         selected = selected && selected.inv === d.inv && selected.slot === d.slot ? null : { inv: d.inv, slot: d.slot };
@@ -241,10 +266,8 @@ document.addEventListener('mouseup', (e) => {
     const item = itemAt(d.inv, d.slot);
     if (!item) return;
     const amount = Number($('#amount')?.value) || 0;
-    const isShop = inventories[d.inv]?.type === 'shop';
-    // from a shop the amount box is how many to buy (default 1); elsewhere 0 means the whole stack
-    let count = isShop ? Math.max(1, amount) : amount > 0 ? Math.min(amount, item.count) : item.count;
-    if (d.half && item.count > 1 && !isShop) count = Math.ceil(item.count / 2);
+    let count = amount > 0 ? Math.min(amount, item.count) : item.count;
+    if (d.half && item.count > 1) count = Math.ceil(item.count / 2);
 
     post('move', { from: d.inv, fromSlot: d.slot, to: toInv, toSlot: slotEl ? Number(slotEl.dataset.slot) : null, count });
     selected = null;
@@ -296,6 +319,125 @@ function showHotbar({ inventory, slot }) {
     hotbarTimer = setTimeout(() => bar.classList.add('hidden'), 1800);
 }
 
+/* ---------- shop cart ---------- */
+const money = (n) => '$' + Number(n || 0).toLocaleString('en-US');
+const ACCOUNT_LABELS = { cash: 'Pay cash', bank: 'Pay bank', crypto: 'Pay crypto' };
+const ACCOUNT_ICONS = { cash: 'fa-money-bill-wave', bank: 'fa-building-columns', crypto: 'fa-bitcoin-sign' };
+
+function shopEntry(slot) {
+    return itemAt(cart.shop, Number(slot));
+}
+
+function maxFor(entry) {
+    if (!entry) return 0;
+    if (!(defs[entry.name] || {}).stack && entry.metadata.unlimited) return 99;
+    return entry.metadata.unlimited ? 999 : entry.count;
+}
+
+function addToCart(shopId, slot, count) {
+    if (cart.shop !== shopId) return;
+    const entry = shopEntry(slot);
+    if (!entry) return;
+    cart.lines[slot] = Math.min(maxFor(entry), (cart.lines[slot] || 0) + count);
+    cart.error = '';
+    renderCart();
+}
+
+function setLine(slot, count) {
+    const entry = shopEntry(slot);
+    if (!entry || count <= 0) delete cart.lines[slot];
+    else cart.lines[slot] = Math.min(maxFor(entry), count);
+    renderCart();
+}
+
+function renderCart() {
+    let win = document.querySelector('.window[data-type="cart"]');
+    if (!cart.shop) { win?.remove(); return; }
+
+    if (!win) {
+        win = document.createElement('div');
+        win.className = 'window cart';
+        win.dataset.type = 'cart';
+        win.dataset.inv = 'cart';
+        win.dataset.placed = '';
+        win.innerHTML = `<div class="w-head"></div><div class="cart-lines"></div><div class="cart-foot"></div>`;
+        $('#windows').appendChild(win);
+        bindWindow(win);
+    }
+
+    // drop lines whose item sold out / shrink to remaining stock
+    let total = 0, count = 0;
+    Object.keys(cart.lines).forEach((slot) => {
+        const entry = shopEntry(slot);
+        if (!entry) return delete cart.lines[slot];
+        cart.lines[slot] = Math.min(cart.lines[slot], maxFor(entry));
+        total += entry.metadata.price * cart.lines[slot];
+        count += cart.lines[slot];
+    });
+
+    win.querySelector('.w-head').innerHTML =
+        `<span class="w-icon"><i class="fa-solid fa-cart-shopping"></i></span>
+         <span class="w-weight">${count} item${count === 1 ? '' : 's'}</span>
+         <span class="w-title">Cart</span>`;
+
+    const slots = Object.keys(cart.lines);
+    win.querySelector('.cart-lines').innerHTML = slots.length
+        ? slots.map((slot) => {
+            const entry = shopEntry(slot);
+            const d = defs[entry.name] || { label: entry.name };
+            const qty = cart.lines[slot];
+            return `<div class="line" data-slot="${slot}">
+                <span class="l-icon"><i class="${esc(d.icon || 'fa-solid fa-box').replace(/[^\w\s-]/g, '')}"></i></span>
+                <span class="l-name">${esc(d.label)}<small>${money(entry.metadata.price)} each</small></span>
+                <span class="l-qty">
+                    <button data-q="-1"><i class="fa-solid fa-minus"></i></button>
+                    <input type="number" min="1" value="${qty}">
+                    <button data-q="1"><i class="fa-solid fa-plus"></i></button>
+                </span>
+                <span class="l-total">${money(entry.metadata.price * qty)}</span>
+                <button class="l-remove" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </div>`;
+        }).join('')
+        : `<div class="cart-empty"><i class="fa-solid fa-basket-shopping"></i>Click or drag items here</div>`;
+
+    win.querySelector('.cart-foot').innerHTML =
+        `<div class="c-total"><span>Total</span><b>${money(total)}</b></div>
+         ${cart.error ? `<div class="c-error">${esc(cart.error)}</div>` : ''}
+         <div class="c-pay">${payment.map((acc) =>
+            `<button data-pay="${esc(acc)}" ${slots.length ? '' : 'disabled'}><i class="fa-solid ${ACCOUNT_ICONS[acc] || 'fa-wallet'}"></i> ${esc(ACCOUNT_LABELS[acc] || acc)}</button>`).join('')}</div>`;
+}
+
+document.addEventListener('click', async (e) => {
+    const win = e.target.closest('.window.cart');
+    if (!win) return;
+    const line = e.target.closest('.line');
+    const qtyBtn = e.target.closest('[data-q]');
+    if (line && qtyBtn) return setLine(line.dataset.slot, cart.lines[line.dataset.slot] + Number(qtyBtn.dataset.q));
+    if (line && e.target.closest('.l-remove')) return setLine(line.dataset.slot, 0);
+
+    const pay = e.target.closest('[data-pay]');
+    if (!pay || cart.busy) return;
+    cart.busy = true;
+    pay.disabled = true;
+    const items = Object.entries(cart.lines).map(([slot, count]) => ({ slot: Number(slot), count }));
+    const res = await fetch(`https://${resource}/checkout`, {
+        method: 'POST', body: JSON.stringify({ shop: cart.shop.replace(/^shop:/, ''), method: pay.dataset.pay, items }),
+    }).then((r) => r.json()).catch(() => ({ ok: false, error: 'No response' }));
+    cart.busy = false;
+    if (res.ok) {
+        cart.lines = {};
+        cart.error = '';
+    } else {
+        cart.error = res.error || 'Payment failed';
+    }
+    renderCart();
+});
+
+document.addEventListener('change', (e) => {
+    const line = e.target.closest('.window.cart .line');
+    if (line && e.target.matches('input')) setLine(line.dataset.slot, Math.floor(Number(e.target.value) || 0));
+});
+
 /* ---------- messages ---------- */
 function setInventory(inv) {
     // the ground: swap the "newdrop" placeholder for the real drop and back again when emptied
@@ -328,6 +470,8 @@ window.addEventListener('message', ({ data }) => {
             inventories[d.player.id] = d.player;
             (d.others || []).forEach((inv) => { inventories[inv.id] = inv; order.push(inv.id); });
             selected = null;
+            payment = d.payment || payment;
+            cart = { shop: order.find((id) => inventories[id].type === 'shop') || null, lines: {} };
             $('#windows').innerHTML = '';
             $('#inventory').classList.remove('hidden');
             renderAll();
@@ -376,8 +520,9 @@ if (location.search.includes('preview')) {
             { slot: 8, name: 'phone', count: 1 }, { slot: 9, name: 'pistol_ammo', count: 3 },
         ] },
         others: [
-            { id: 'trunk:ARCA', type: 'trunk', label: 'Trunk · ARCA1234', slots: 20, maxWeight: 40000, weight: 2000, items: [{ slot: 1, name: 'copper', count: 10 }] },
+
             { id: 'shop:247', type: 'shop', label: '24/7 Supermarket', slots: 6, maxWeight: 0, weight: 0, items: [{ slot: 1, name: 'water', count: 1, metadata: { price: 5, unlimited: true } }, { slot: 2, name: 'bread', count: 1, metadata: { price: 4, unlimited: true } }, { slot: 3, name: 'medikit', count: 12, metadata: { price: 150, unlimited: false } }] },
         ],
     } });
+    setTimeout(() => { addToCart('shop:247', 1, 2); addToCart('shop:247', 3, 1); }, 50);
 }

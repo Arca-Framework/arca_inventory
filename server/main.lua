@@ -305,47 +305,6 @@ local function buildShops()
     end
 end
 
-local function purchase(src, shop, slot, to, toSlot, count)
-    if to.id ~= PlayerInv[src] then return end
-    local entry = shop.items[slot]
-    if not entry then return end
-    local price, unlimited = entry.metadata.price, entry.metadata.unlimited
-    if not def(entry.name).stack then count = 1 end
-    if not unlimited then count = math.min(count, entry.count) end
-    if count < 1 then return end
-
-    if not canCarry(to, entry.name, count) then
-        return TriggerClientEvent('arca_core:notify', src, 'You can\'t carry that much', 'error')
-    end
-
-    local cost = price * count
-    local player = exports.arca_core:GetPlayer(src)
-    if not player then return end
-    local paid
-    for _, account in ipairs(InvConfig.ShopPayment) do
-        if (player.PlayerData.money[account] or 0) >= cost and player.RemoveMoney(account, cost, 'shop: ' .. shop.label) then
-            paid = account
-            break
-        end
-    end
-    if not paid then
-        return TriggerClientEvent('arca_core:notify', src, ('You need $%d'):format(cost), 'error')
-    end
-
-    local target = toSlot and not to.items[toSlot] and toSlot or nil
-    if not addItem(to, entry.name, count, nil, target) then
-        player.AddMoney(paid, cost, 'shop refund')
-        return TriggerClientEvent('arca_core:notify', src, 'No free slot', 'error')
-    end
-
-    if not unlimited then
-        entry.count = entry.count - count
-        if entry.count <= 0 then shop.items[slot] = nil end
-        changed(shop)
-    end
-    TriggerClientEvent('arca_core:notify', src, ('Bought %dx %s for $%d'):format(count, def(entry.name).label, cost), 'success')
-end
-
 ---------------------------------------------------------------------
 -- Dumpsters (in-memory, keyed by position)
 ---------------------------------------------------------------------
@@ -476,6 +435,84 @@ local function createDrop(src)
     return inv
 end
 
+---Would all these items fit (weight + slots) without changing anything?
+local function fits(inv, lines)
+    local weight = weightOf(inv)
+    local free = 0
+    for s = 1, inv.slots do if not inv.items[s] then free = free + 1 end end
+
+    local newStacks = {}
+    for _, line in ipairs(lines) do
+        local d = def(line.name)
+        weight = weight + d.weight * line.count
+        if d.stack then
+            if not stackSlot(inv, line.name, {}) and not newStacks[line.name] then
+                newStacks[line.name] = true
+                free = free - 1
+            end
+        else
+            free = free - line.count
+        end
+    end
+    return weight <= inv.maxWeight and free >= 0
+end
+
+---Buys everything in the cart in one go, paid from the chosen account
+---@param data { shop: string, method: 'cash'|'bank', items: { slot: number, count: number }[] }
+Arca.Callback.Register('arca_inventory:checkout', function(src, data)
+    if type(data) ~= 'table' or type(data.items) ~= 'table' then return false, 'Invalid cart' end
+    local shopInv = Inventories['shop:' .. tostring(data.shop)]
+    local own = Inventories[PlayerInv[src]]
+    if not shopInv or not own or not canUse(src, shopInv.id) then return false, 'You are not at this shop' end
+
+    local method = data.method
+    local allowed = false
+    for _, account in ipairs(InvConfig.ShopPayment) do
+        if account == method then allowed = true end
+    end
+    if not allowed then return false, 'That payment method is not accepted' end
+
+    -- validate every line against the shop's real prices and stock
+    local lines, total = {}, 0
+    for _, req in ipairs(data.items) do
+        local slot = tonumber(req.slot)
+        local entry = slot and shopInv.items[slot]
+        local count = math.floor(tonumber(req.count) or 0)
+        if not entry or count < 1 then return false, 'Your cart is out of date' end
+        if not entry.metadata.unlimited and count > entry.count then
+            return false, ('Only %d %s left'):format(entry.count, def(entry.name).label)
+        end
+        lines[#lines + 1] = { slot = slot, name = entry.name, count = count, entry = entry }
+        total = total + entry.metadata.price * count
+    end
+    if #lines == 0 then return false, 'Your cart is empty' end
+
+    if not fits(own, lines) then return false, 'You can\'t carry all of that' end
+
+    local player = exports.arca_core:GetPlayer(src)
+    if not player then return false, 'Player not found' end
+    if (player.PlayerData.money[method] or 0) < total then
+        return false, ('Not enough %s ($%d needed)'):format(method, total)
+    end
+    if not player.RemoveMoney(method, total, 'shop: ' .. shopInv.label) then
+        return false, 'Payment failed'
+    end
+
+    local stockChanged = false
+    for _, line in ipairs(lines) do
+        addItem(own, line.name, line.count)
+        if not line.entry.metadata.unlimited then
+            line.entry.count = line.entry.count - line.count
+            if line.entry.count <= 0 then shopInv.items[line.slot] = nil end
+            stockChanged = true
+        end
+    end
+    if stockChanged then changed(shopInv) end
+
+    TriggerClientEvent('arca_core:notify', src, ('Paid $%d by %s'):format(total, method), 'success')
+    return true
+end)
+
 RegisterNetEvent('arca_inventory:move', function(data)
     local src = source
     if type(data) ~= 'table' then return end
@@ -500,9 +537,8 @@ RegisterNetEvent('arca_inventory:move', function(data)
 
     -- shops are read-only: you can only take from them, which buys the item
     if to.type == 'shop' then return end
-    if from.type == 'shop' then
-        return purchase(src, from, fromSlot, to, toSlot, math.max(1, math.floor(tonumber(data.count) or 1)))
-    end
+    -- items leave a shop through the cart (arca_inventory:checkout), never by dragging
+    if from.type == 'shop' then return end
 
     local d = def(item.name)
     local count = math.floor(tonumber(data.count) or item.count)

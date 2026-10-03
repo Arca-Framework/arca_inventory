@@ -76,7 +76,7 @@ local function openInventory(ctx)
         return exports.arca_core:Notify('Inventory failed to load', 'error')
     end
     isOpen = true
-    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui() } })
+    SendNUIMessage({ action = 'open', data = { player = data.player, others = data.others, items = itemsForNui(), payment = InvConfig.ShopPayment } })
     SetNuiFocus(true, true)
 end
 
@@ -209,6 +209,11 @@ end)
 RegisterNUICallback('move', function(data, cb)
     cb(1)
     TriggerServerEvent('arca_inventory:move', data)
+end)
+
+RegisterNUICallback('checkout', function(data, cb)
+    local ok, err = Arca.Callback.Await('arca_inventory:checkout', data)
+    cb({ ok = ok, error = err })
 end)
 
 RegisterNUICallback('use', function(data, cb)

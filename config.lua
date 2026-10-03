@@ -22,7 +22,7 @@ InvConfig = {
     GiveRange = 3.0,
 
     -- Shops: drag an item from the shop into your inventory to buy it (amount box = quantity)
-    ShopPayment = { 'cash', 'bank' },   -- accounts tried in order
+    ShopPayment = { 'cash', 'bank' },   -- accounts players can pay with at the cart (one button each)
     Shops = {
         {
             id = '247', label = '24/7 Supermarket',
