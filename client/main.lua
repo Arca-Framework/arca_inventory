@@ -56,7 +56,9 @@ local function openInventory(ctx)
         if IsPedInAnyVehicle(ped, false) then
             ctx.glovebox = true
         else
-            local veh = trunkVehicle()
+            -- a specific vehicle (from arca_target), otherwise whichever trunk we're standing at
+            local veh = ctx.vehicle or trunkVehicle()
+            ctx.vehicle = nil
             if veh and GetVehicleDoorLockStatus(veh) < 2 and NetworkGetEntityIsNetworked(veh) then
                 ctx.trunk = NetworkGetNetworkIdFromEntity(veh)
                 ctx.class = GetVehicleClass(veh)
@@ -104,6 +106,47 @@ for i = 1, InvConfig.HotbarSlots do
 end
 
 exports('OpenStash', function(id) openInventory({ stash = id }) end)
+exports('OpenTrunk', function(vehicle) openInventory({ vehicle = vehicle }) end)
+
+---------------------------------------------------------------------
+-- arca_target: look at the back of a vehicle -> "Open trunk"
+---------------------------------------------------------------------
+local function rearOf(veh)
+    local min = GetModelDimensions(GetEntityModel(veh))
+    return GetOffsetFromEntityInWorldCoords(veh, 0.0, min.y - 0.2, 0.0)
+end
+
+local function hasTrunk(veh)
+    local size = InvConfig.Trunk.classes[GetVehicleClass(veh)] or InvConfig.Trunk.default
+    return size.slots > 0
+end
+
+local function registerTarget()
+    exports.arca_target:addGlobalVehicle({
+        {
+            name = 'arca_inventory:trunk',
+            label = 'Open trunk',
+            icon = 'fa-solid fa-car-rear',
+            distance = 3.0,
+            canInteract = function(veh, _, coords)
+                if isOpen or IsPedInAnyVehicle(PlayerPedId(), false) then return false end
+                if GetVehicleDoorLockStatus(veh) >= 2 or not hasTrunk(veh) then return false end
+                -- only when aiming at the back of the vehicle and standing near it
+                local rear = rearOf(veh)
+                return #(coords - rear) < 1.8 and #(GetEntityCoords(PlayerPedId()) - rear) < InvConfig.Trunk.range + 1.0
+            end,
+            onSelect = function(data)
+                openInventory({ vehicle = data.entity })
+            end,
+        },
+    })
+end
+
+-- arca_target may start after us, or restart (which clears its options), so register whenever it starts
+if GetResourceState('arca_target') == 'started' then registerTarget() end
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource == 'arca_target' then registerTarget() end
+end)
 exports('CloseInventory', closeInventory)
 
 ---------------------------------------------------------------------
