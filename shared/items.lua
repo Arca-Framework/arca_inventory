@@ -3,6 +3,9 @@
 --   close = true   -> using the item closes the inventory
 --   icon           -> Font Awesome icon shown when web/images/<name>.png doesn't exist
 InvItems = {
+    -- kept in sync with the player's cash account when InvConfig.CashItem is on
+    cash = { label = 'Cash', weight = 0, stack = true, icon = 'fa-solid fa-money-bill-wave', description = 'Cold hard cash.' },
+
     water = { label = 'Water', weight = 500, stack = true, close = true, icon = 'fa-solid fa-bottle-water', description = 'Fresh bottled water.' },
     sandwich = { label = 'Sandwich', weight = 300, stack = true, close = true, icon = 'fa-solid fa-burger', description = 'Fills you up.' },
     bread = { label = 'Bread', weight = 250, stack = true, close = true, icon = 'fa-solid fa-bread-slice', description = 'A loaf of bread.' },

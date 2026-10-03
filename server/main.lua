@@ -97,8 +97,11 @@ local function syncDrops()
     TriggerClientEvent('arca_inventory:client:drops', -1, list)
 end
 
+local cashSync -- set further down once the item helpers exist
+
 local function changed(inv)
     inv.dirty = true
+    if inv.type == 'player' and cashSync then cashSync(inv) end
     if inv.type == 'drop' and next(inv.items) == nil then
         -- empty drops disappear
         for src in pairs(Viewers[inv.id] or {}) do
@@ -120,6 +123,7 @@ local function loadPlayer(src, citizenid)
     inv.owner = src
     PlayerInv[src] = id
     Viewers[id][src] = true
+    if CashFromAccount then CashFromAccount(src) end
     TriggerClientEvent('arca_inventory:client:update', src, payload(inv))
 end
 
@@ -232,6 +236,53 @@ local function removeItem(inv, name, count, slot)
     end
     changed(inv)
     return true
+end
+
+---------------------------------------------------------------------
+-- Cash as an item: the 'cash' item and arca_core's cash account are kept equal.
+-- Moving/dropping/giving cash changes the account; AddMoney/RemoveMoney from any
+-- script changes the item.
+---------------------------------------------------------------------
+local applying = {} -- [inventory id] = true while we change the item ourselves
+
+local function setCashItem(inv, amount)
+    local current = countItem(inv, 'cash')
+    if amount == current then return end
+    applying[inv.id] = true
+    if amount > current then
+        if not addItem(inv, 'cash', amount - current) then
+            print(('^3[arca_inventory] no free slot for cash in %s^7'):format(inv.id))
+        end
+    else
+        removeItem(inv, 'cash', current - amount)
+    end
+    applying[inv.id] = nil
+    inv.cash = countItem(inv, 'cash')
+end
+
+if InvConfig.CashItem then
+    cashSync = function(inv)
+        if applying[inv.id] or not inv.owner then return end
+        local cash = countItem(inv, 'cash')
+        if cash == inv.cash then return end
+        inv.cash = cash
+        local player = exports.arca_core:GetPlayer(inv.owner)
+        if player and player.PlayerData.money.cash ~= cash then
+            player.SetMoney('cash', cash, 'inventory')
+        end
+    end
+
+    ---Makes the item match the account (on login and after AddMoney/RemoveMoney)
+    function CashFromAccount(src)
+        local inv = Inventories[PlayerInv[src]]
+        local player = exports.arca_core:GetPlayer(src)
+        if inv and player then setCashItem(inv, math.floor(player.PlayerData.money.cash or 0)) end
+    end
+
+    AddEventHandler('arca_core:server:onMoneyChange', function(src, account, _, reason)
+        if account ~= 'cash' or reason == 'inventory' then return end
+        CashFromAccount(src)
+    end)
 end
 
 ---------------------------------------------------------------------

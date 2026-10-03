@@ -48,7 +48,9 @@ function itemHtml(item) {
     const stock = price !== undefined && !item.metadata.unlimited ? `<span class="stock">${item.count} left</span>` : '';
     const top = price !== undefined
         ? `<span class="price">$${esc(price)}</span>`
-        : `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
+        : item.name === 'cash'
+            ? `<span class="count">$${Number(item.count).toLocaleString('en-US')}</span>`
+            : `<span class="count">${item.count > 1 || d.stack ? item.count : ''}</span>`;
     return `<div class="item" data-name="${esc(item.name)}">
         ${top}${stock}
         <span class="img"><img src="images/${esc(item.name)}.png" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'${icon}'}))"></span>

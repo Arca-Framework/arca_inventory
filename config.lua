@@ -21,6 +21,10 @@ InvConfig = {
 
     GiveRange = 3.0,
 
+    -- Cash is an item in your inventory, kept equal to your arca_core cash balance.
+    -- Dropping, giving or storing it moves the money; AddMoney/RemoveMoney from scripts update the item.
+    CashItem = true,
+
     -- Shops: drag an item from the shop into your inventory to buy it (amount box = quantity)
     ShopPayment = { 'cash', 'bank' },   -- accounts players can pay with at the cart (one button each)
     Shops = {
