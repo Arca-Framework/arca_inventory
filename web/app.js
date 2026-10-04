@@ -233,6 +233,8 @@ function itemAt(invId, slot) {
 document.addEventListener('mousedown', (e) => {
     const itemEl = e.target.closest('.item');
     if (!itemEl || e.button !== 0 || itemEl.closest('#hotbar')) return;
+    // stop the browser's native image drag / text selection from swallowing the mouse events
+    e.preventDefault();
     const slotEl = itemEl.parentElement;
     drag = {
         inv: slotEl.dataset.inv, slot: Number(slotEl.dataset.slot), el: itemEl,
@@ -302,6 +304,8 @@ document.addEventListener('mouseup', (e) => {
     post('move', { from: d.inv, fromSlot: d.slot, to: toInv, toSlot: slotEl ? Number(slotEl.dataset.slot) : null, count });
     selected = null;
 });
+
+document.addEventListener('dragstart', (e) => e.preventDefault());
 
 document.addEventListener('dblclick', (e) => {
     const slotEl = e.target.closest('.slot');
@@ -528,6 +532,9 @@ window.addEventListener('message', ({ data }) => {
         case 'close':
             $('#inventory').classList.add('hidden');
             hideTooltip();
+            weaponMenu.classList.add('hidden');
+            $('#ghost').classList.add('hidden');
+            document.querySelectorAll('.item.dragging').forEach((el) => el.classList.remove('dragging'));
             drag = null;
             break;
         case 'hotbar':

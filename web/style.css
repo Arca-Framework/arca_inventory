@@ -69,6 +69,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .item i { font-size: 26px; color: #d7dbe1; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .5)); }
 .item .label { width: 100%; text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item.dragging { opacity: .25; }
+.item, .item * { user-select: none; -webkit-user-drag: none; }
 
 /* ---------- player action bar ---------- */
 .actions { display: grid; grid-template-columns: 1fr 110px 1fr; gap: 0; border-top: 1px solid var(--border); }
